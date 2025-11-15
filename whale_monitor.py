@@ -299,7 +299,7 @@ def display_whale_dashboard(use_demo_data=False):
                 
                 for position in data['positions']:
                     with st.container():
-                        st.markdown("<div class='position-card'>", unsafe_allow_html=True)
+                        st.markdown("<div style='background-color: #ffffff; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
                         
                         col1, col2, col3 = st.columns(3)
                         
@@ -318,7 +318,7 @@ def display_whale_dashboard(use_demo_data=False):
                         with col3:
                             st.write("**📊 Performance**")
                             pnl_class = "positive-pnl" if position['unrealizedPnl'] >= 0 else "negative-pnl"
-                            st.markdown(f"**PnL:** <span class='{pnl_class}'>${position['unrealizedPnl']:+,.0f}</span>", unsafe_allow_html=True)
+                            st.markdown(f"**PnL:** <span style='color: {'#00d600' if position['unrealizedPnl'] >= 0 else '#ff4b4b'}; font-weight: bold;'>${position['unrealizedPnl']:+,.0f}</span>", unsafe_allow_html=True)
                             st.write(f"**Margin:** ${position['margin']:,.0f}")
                             
                             # Risk assessment
