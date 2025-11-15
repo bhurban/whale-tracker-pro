@@ -351,7 +351,7 @@ def get_demo_whale_data(wallet, name):
     }
 
 def display_whale_dashboard(use_demo_data=False):
-    """Display enhanced whale tracking dashboard with all metrics"""
+    """Display enhanced whale tracking dashboard with all metrics - STABLE VERSION"""
     # Show loading message
     with st.spinner('🔄 Loading comprehensive whale data...'):
         # Fetch data
@@ -452,59 +452,40 @@ def display_whale_dashboard(use_demo_data=False):
                     hide_index=True
                 )
                 
-                # Additional position details in expanders
+                # Show additional metrics for each position without expanders
+                st.write("**📊 Position Analysis**")
                 for i, position in enumerate(data['positions']):
-                    with st.expander(f"📊 Detailed Analysis: {position['symbol']} {position['type']}", key=f"{wallet}_{i}"):
-                        col1, col2 = st.columns(2)
+                    # Create a simple card for each position's additional metrics
+                    st.markdown(f"**{position['symbol']} {position['type']} Analysis:**")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write(f"**Current Price:** ${position['mark_price']:,.2f}")
+                        st.write(f"**Liquidation Price:** ${position['liq_price']:,.2f}")
+                        st.write(f"**Margin Used:** ${position['margin']:,.0f}")
                         
-                        with col1:
-                            st.write("**Position Metrics**")
-                            st.write(f"**Current Price:** ${position['mark_price']:,.2f}")
-                            st.write(f"**Liquidation Price:** ${position['liq_price']:,.2f}")
-                            st.write(f"**Margin Used:** ${position['margin']:,.0f}")
-                            
-                            # Distance to SL/TP
-                            if position['type'] == 'LONG':
-                                sl_distance = ((position['mark_price'] - position['sl_price']) / position['mark_price']) * 100
-                                tp_distance = ((position['tp_price'] - position['mark_price']) / position['mark_price']) * 100
-                            else:
-                                sl_distance = ((position['sl_price'] - position['mark_price']) / position['mark_price']) * 100
-                                tp_distance = ((position['mark_price'] - position['tp_price']) / position['mark_price']) * 100
-                            
-                            st.write(f"**Distance to SL:** {sl_distance:.1f}%")
-                            st.write(f"**Distance to TP:** {tp_distance:.1f}%")
+                    with col2:
+                        # Risk level based on leverage and PnL
+                        if position['leverage'] > 8:
+                            risk_level = "🚨 Very High"
+                        elif position['leverage'] > 5:
+                            risk_level = "⚠️ High"
+                        elif position['leverage'] > 3:
+                            risk_level = "🔶 Medium"
+                        else:
+                            risk_level = "✅ Low"
                         
-                        with col2:
-                            st.write("**Risk Assessment**")
-                            
-                            # Risk level based on leverage and PnL
-                            if position['leverage'] > 8:
-                                risk_level = "🚨 Very High"
-                            elif position['leverage'] > 5:
-                                risk_level = "⚠️ High"
-                            elif position['leverage'] > 3:
-                                risk_level = "🔶 Medium"
-                            else:
-                                risk_level = "✅ Low"
-                            
-                            st.write(f"**Risk Level:** {risk_level}")
-                            
-                            # Position status
-                            if position['pnl'] > 0:
-                                status = "🟢 Profitable"
-                            else:
-                                status = "🔴 Losing"
-                            
-                            st.write(f"**Status:** {status}")
-                            
-                            # Recommendation
-                            if position['pnl_percent'] < -10:
-                                recommendation = "Consider reducing position"
-                            elif position['leverage'] > 6:
-                                recommendation = "Monitor leverage closely"
-                            else:
-                                recommendation = "Position looks healthy"
-                            
-                            st.write(f"**Recommendation:** {recommendation}")
+                        st.write(f"**Risk Level:** {risk_level}")
+                        
+                        # Position status
+                        if position['pnl'] > 0:
+                            status = "🟢 Profitable"
+                        else:
+                            status = "🔴 Losing"
+                        
+                        st.write(f"**Status:** {status}")
+                    
+                    st.markdown("---")
             
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
