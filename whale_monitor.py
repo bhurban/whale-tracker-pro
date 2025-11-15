@@ -64,82 +64,74 @@ def get_whale_data():
         return {}
 
 
-
-
 def display_whale_dashboard(whale_data=None):
+    """Display the main whale tracking dashboard"""
     if whale_data is None:
         whale_data = get_whale_data()
-
-# In your display_whale_dashboard function, add:
+    
+    # Show warning if using demo data
     if not whale_data:
         st.warning("No whale data available. Using demo data.")
-
-    # Show demo data or instructions
-
-    # Rest of your function with proper indentation
-    st.title("🐋 Live Whale Positions")
-
+        # Create demo data
+        whale_data = {
+            'demo_wallet': {
+                'name': 'Demo Whale',
+                'positions': [{
+                    'symbol': 'ETH/USDC',
+                    'side': 'long',
+                    'size': 1000,
+                    'entryPrice': 2500,
+                    'markPrice': 2550,
+                    'liqPrice': 2000,
+                    'leverage': 5,
+                    'unrealizedPnl': 50,
+                    'margin': 200
+                }],
+                'geo': {'region': 'Global'},
+                'last_updated': datetime.now()
+            }
+        }
     
-    """Display the main whale tracking dashboard"""
-    st.markdown("## 🐋 Live Whale Positions")
+    # Dashboard content without duplicate title
+    st.write(f"**Tracking {len(whale_data)} active whales**")
     
-    for whale_name, data in whale_data.items():
-        status = "🟢" if data['total_value'] > 1000 else "🔴"
-        
-        with st.expander(f"{status} {whale_name} - ${data['total_value']:,.2f} | {data['position_count']} Positions", 
-                        expanded=data['total_value'] > 1000):
+    # Display whale cards
+    for wallet, data in whale_data.items():
+        with st.container():
+            col1, col2 = st.columns([3, 1])
             
-            # Whale info columns
-            col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("📍 Country", data['country'])
-            with col2:
-                st.metric("🌍 Region", data['region'])
-            with col3:
-                pnl_percent = (data['total_pnl'] / data['total_value']) * 100 if data['total_value'] > 0 else 0
-                st.metric("💸 Total P&L", f"${data['total_pnl']:+,.2f}", 
-                         delta=f"{pnl_percent:+.1f}%" if data['total_value'] > 0 else "0%")
-            with col4:
-                st.metric("🎯 Risk Level", data['risk_level'])
+                st.subheader(f"🐋 {data['name']}")
+                st.write(f"**Wallet:** `{wallet}`")
+                st.write(f"**Region:** {data['geo'].get('region', 'Unknown')}")
+                st.write(f"**Last Updated:** {data['last_updated'].strftime('%Y-%m-%d %H:%M:%S')}")
             
-            # Positions table
+            with col2:
+                if data['positions']:
+                    position = data['positions'][0]  # Show first position
+                    st.metric(
+                        label=f"{position['symbol']} {position['side'].upper()}",
+                        value=f"${position['size']:,.0f}",
+                        delta=f"${position['unrealizedPnl']:,.0f} PnL"
+                    )
+                else:
+                    st.write("No active positions")
+            
+            # Show all positions
             if data['positions']:
-                positions_df = pd.DataFrame(data['positions'])
-                
-                # Format display dataframe
-                display_df = positions_df.copy()
-                display_df['Value'] = display_df['Value'].apply(lambda x: f"${x:,.2f}")
-                display_df['P&L'] = display_df['P&L'].apply(lambda x: f"${x:+,.2f}")
-                display_df['P&L %'] = display_df['P&L %'].apply(lambda x: f"{x:+.1f}%")
-                display_df['Entry Price'] = display_df['Entry Price'].apply(
-                    lambda x: f"${x:,.2f}" if x > 1 else f"${x:.4f}")
-                display_df['Leverage'] = display_df['Leverage_Display']  # Use the display version
-                
-                # Remove the temporary column for display
-                display_df_display = display_df.drop('Leverage_Display', axis=1)
-                
-                # FIXED: Streamlit warning by using width='stretch'
-                st.dataframe(display_df_display, width='stretch')
-                
-                # Position value chart
-                if len(positions_df) > 0:
-                    fig_bar = px.bar(positions_df, x='Coin', y='Value', 
-                                    color='Type',
-                                    title=f'{whale_name} - Position Values',
-                                    color_discrete_map={'SHORT 🔴': '#FF6B6B', 'LONG 🟢': '#4ECDC4'})
-                    st.plotly_chart(fig_bar, use_container_width=True)
-                    
-                # Leverage and position stats
-                col1, col2 = st.columns(2)
-                with col1:
-                    if len(positions_df) > 0:
-                        # Use the numeric leverage column directly
-                        avg_leverage = positions_df['Leverage'].mean()
-                        st.metric("📊 Average Leverage", f"{avg_leverage:.1f}x")
-                    else:
-                        st.metric("📊 Average Leverage", "0x")
-                
-                with col2:
-                    st.metric("🔄 Position Types", f"🟢{data['long_count']} 🔴{data['short_count']}")
-            else:
-                st.info("No active positions for this whale")
+                for position in data['positions']:
+                    with st.expander(f"📊 {position['symbol']} - {position['side']} Position"):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.write(f"**Size:** ${position['size']:,.0f}")
+                            st.write(f"**Entry:** ${position['entryPrice']:,.0f}")
+                            st.write(f"**Mark:** ${position['markPrice']:,.0f}")
+                        with col2:
+                            st.write(f"**Leverage:** {position['leverage']}x")
+                            st.write(f"**Margin:** ${position['margin']:,.0f}")
+                            st.write(f"**Liq Price:** ${position['liqPrice']:,.0f}")
+                        with col3:
+                            pnl_color = "green" if position['unrealizedPnl'] >= 0 else "red"
+                            st.write(f"**Unrealized PnL:** :{pnl_color}[${position['unrealizedPnl']:,.0f}]")
+            
+            st.divider()
