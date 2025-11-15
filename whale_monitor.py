@@ -176,48 +176,59 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
         st.error(f"Error parsing positions for {wallet_address}: {str(e)}")
         return []
 
+
 def get_real_whale_data():
     """Fetch REAL whale data from Hyperliquid API"""
     whale_data = {}
     
-    st.info("🌐 Fetching REAL data from Hyperliquid API...")
-    
-    active_whales = 0
-    total_positions = 0
-    
-    for wallet, whale_name in REAL_WHALE_ADDRESSES.items():
-        try:
-            user_state = get_hyperliquid_user_state(wallet)
-            
-            if user_state:
-                positions = parse_real_hyperliquid_positions(user_state, wallet)
+    # Compact API status display
+    with st.status("🌐 **Fetching LIVE Hyperliquid Data...**", expanded=False) as status:
+        active_whales = 0
+        total_positions = 0
+        status_messages = []
+        
+        for wallet, whale_name in REAL_WHALE_ADDRESSES.items():
+            try:
+                user_state = get_hyperliquid_user_state(wallet)
                 
-                if positions:
-                    whale_data[wallet] = {
-                        'name': whale_name,
-                        'positions': positions,
-                        'geo': WHALE_GEO_DATA.get(wallet, {}),
-                        'last_updated': datetime.now(),
-                        'data_source': '🌐 LIVE HYPERLIQUID'
-                    }
-                    active_whales += 1
-                    total_positions += len(positions)
-                    st.success(f"✅ {whale_name}: {len(positions)} positions")
+                if user_state:
+                    positions = parse_real_hyperliquid_positions(user_state, wallet)
+                    
+                    if positions:
+                        whale_data[wallet] = {
+                            'name': whale_name,
+                            'positions': positions,
+                            'geo': WHALE_GEO_DATA.get(wallet, {}),
+                            'last_updated': datetime.now(),
+                            'data_source': '🌐 LIVE HYPERLIQUID'
+                        }
+                        active_whales += 1
+                        total_positions += len(positions)
+                        status_messages.append(f"✅ {whale_name.split()[-1]}: {len(positions)}")
+                    else:
+                        status_messages.append(f"⚪ {whale_name.split()[-1]}: 0")
                 else:
-                    st.info(f"📊 {whale_name}: No active positions")
-            else:
-                st.warning(f"🔌 {whale_name}: API unavailable")
-                
-        except Exception as e:
-            st.error(f"❌ {whale_name}: Error processing - {str(e)}")
-    
-    if active_whales > 0:
-        st.success(f"🎯 **REAL DATA LOADED:** {active_whales} whales with {total_positions} total positions")
-    else:
-        st.warning("📊 No active positions found, showing realistic patterns")
-        return get_realistic_fallback_data()
+                    status_messages.append(f"🔌 {whale_name.split()[-1]}")
+                    
+            except Exception as e:
+                status_messages.append(f"❌ {whale_name.split()[-1]}")
+        
+        # Display status in compact columns
+        if status_messages:
+            cols = st.columns(3)
+            for i, msg in enumerate(status_messages):
+                cols[i % 3].write(msg)
+        
+        if active_whales > 0:
+            status.update(label=f"✅ **{active_whales} whales, {total_positions} positions loaded**", state="complete")
+        else:
+            status.update(label="⚠️ Using demo data", state="error")
+            return get_realistic_fallback_data()
     
     return whale_data
+
+
+
 
 def get_realistic_fallback_data():
     """Fallback to realistic data if no real positions"""
