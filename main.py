@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from whale_monitor import display_whale_dashboard, display_alerts_history, display_analytics, display_whale_profiles
+from whale_monitor import display_whale_dashboard
 
 def main():
     st.set_page_config(
@@ -18,12 +18,6 @@ def main():
         color: #1E88E5;
         text-align: center;
         margin-bottom: 1rem;
-    }
-    .nav-tabs {
-        background: #f0f2f6;
-        padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 2rem;
     }
     .whale-card {
         background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
@@ -60,33 +54,9 @@ def main():
     alert_leverage = st.sidebar.slider("High Leverage Alert", 3, 20, 5)
     alert_size = st.sidebar.slider("Large Trade Alert ($)", 50000, 500000, 100000, step=50000)
     
-    # Navigation Tabs
-    st.markdown('<div class="nav-tabs">', unsafe_allow_html=True)
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Live Dashboard", 
-        "🚨 Alerts Center", 
-        "📈 Analytics", 
-        "🐋 Whale Profiles"
-    ])
-    st.markdown('</div>', unsafe_allow_html=True)
-    
+    # Display dashboard
     use_demo_data = (data_source == "Demo Data")
-    
-    with tab1:
-        st.subheader("🌐 Real-Time Whale Positions")
-        display_whale_dashboard(use_demo_data=use_demo_data)
-    
-    with tab2:
-        st.subheader("🚨 Trading Alerts & Signals")
-        display_alerts_history(use_demo_data=use_demo_data)
-    
-    with tab3:
-        st.subheader("📈 Market Analytics")
-        display_analytics(use_demo_data=use_demo_data)
-    
-    with tab4:
-        st.subheader("🐋 Whale Profiles & History")
-        display_whale_profiles(use_demo_data=use_demo_data)
+    display_whale_dashboard(use_demo_data=use_demo_data)
     
     # Footer
     st.sidebar.markdown("---")
