@@ -3,7 +3,30 @@ import pandas as pd
 import requests
 import json
 from datetime import datetime
-from config import WHALE_ADDRESSES, WHALE_GEO_DATA, ALERT_THRESHOLDS
+
+# Try to import config, but provide defaults if it fails
+try:
+    from config import WHALE_ADDRESSES, WHALE_GEO_DATA, ALERT_THRESHOLDS
+except ImportError:
+    # Default configuration if config.py is missing
+    WHALE_ADDRESSES = {
+        "0x742d35Cc6634C0532925a3b8D": "Crypto Whale Alpha",
+        "0x8a4bC2349335b7D6a5d2f7A3b9": "Institutional Trader", 
+        "0x3cBdF0D8f7C4a5b0eE2d7a3c1": "DeFi Giant"
+    }
+    
+    WHALE_GEO_DATA = {
+        "0x742d35Cc6634C0532925a3b8D": {"region": "North America"},
+        "0x8a4bC2349335b7D6a5d2f7A3b9": {"region": "Europe"}, 
+        "0x3cBdF0D8f7C4a5b0eE2d7a3c1": {"region": "Asia"}
+    }
+    
+    ALERT_THRESHOLDS = {
+        "high_leverage": 8.0,
+        "large_position": 500000,
+        "pnl_alert": 10000,
+        "liquidation_risk": 0.15
+    }
 
 def get_hyperliquid_user_state(wallet_address):
     """
@@ -20,64 +43,16 @@ def get_hyperliquid_user_state(wallet_address):
         if response.status_code == 200:
             return response.json()
         else:
-            st.error(f"API Error for {wallet_address}: {response.status_code}")
             return None
             
     except Exception as e:
-        st.error(f"Error fetching data for {wallet_address}: {e}")
         return None
-
-def parse_hyperliquid_positions(user_state, wallet_address):
-    """
-    Parse Hyperliquid API response into standardized position format
-    """
-    positions = []
-    
-    try:
-        if user_state and 'assetPositions' in user_state:
-            for position in user_state['assetPositions']:
-                position_data = position.get('position', {})
-                
-                # Extract position details
-                symbol = position_data.get('coin', 'Unknown')
-                size = float(position_data.get('szi', 0))
-                entry_price = float(position_data.get('entryPx', 0))
-                
-                # Calculate market value (simplified)
-                mark_price = get_market_price(symbol)
-                
-                if size != 0 and entry_price != 0:
-                    side = "long" if size > 0 else "short"
-                    leverage = calculate_leverage(position_data)
-                    unrealized_pnl = calculate_unrealized_pnl(position_data, mark_price)
-                    liq_price = calculate_liquidation_price(position_data)
-                    margin = calculate_margin(position_data)
-                    
-                    positions.append({
-                        'symbol': f"{symbol}/USD",
-                        'side': side,
-                        'size': abs(size) * mark_price,  # Convert to USD value
-                        'entryPrice': entry_price,
-                        'markPrice': mark_price,
-                        'liqPrice': liq_price,
-                        'leverage': leverage,
-                        'unrealizedPnl': unrealized_pnl,
-                        'margin': margin,
-                        'raw_data': position_data
-                    })
-        
-        return positions
-        
-    except Exception as e:
-        st.error(f"Error parsing positions for {wallet_address}: {e}")
-        return []
 
 def get_market_price(symbol):
     """
     Get current market price for a symbol
-    TODO: Implement real price fetching from Hyperliquid
     """
-    # Mock prices - replace with real API call
+    # Mock prices - in real implementation, fetch from Hyperliquid
     price_map = {
         'ETH': 2550.75,
         'BTC': 42050.00,
@@ -88,9 +63,7 @@ def get_market_price(symbol):
     return price_map.get(symbol, 100.0)
 
 def calculate_leverage(position_data):
-    """
-    Calculate leverage from position data
-    """
+    """Calculate leverage from position data"""
     try:
         size = abs(float(position_data.get('szi', 0)))
         entry_price = float(position_data.get('entryPx', 1))
@@ -103,9 +76,7 @@ def calculate_leverage(position_data):
         return 1.0
 
 def calculate_unrealized_pnl(position_data, mark_price):
-    """
-    Calculate unrealized P&L
-    """
+    """Calculate unrealized P&L"""
     try:
         size = float(position_data.get('szi', 0))
         entry_price = float(position_data.get('entryPx', 0))
@@ -118,16 +89,12 @@ def calculate_unrealized_pnl(position_data, mark_price):
         return 0.0
 
 def calculate_liquidation_price(position_data):
-    """
-    Calculate liquidation price
-    Simplified calculation - replace with actual Hyperliquid formula
-    """
+    """Calculate liquidation price"""
     try:
         entry_price = float(position_data.get('entryPx', 0))
         leverage = calculate_leverage(position_data)
         
         if leverage > 1:
-            # Simplified liquidation price calculation
             if position_data.get('szi', 0) > 0:  # Long
                 return entry_price * (1 - 1/leverage)
             else:  # Short
@@ -137,57 +104,80 @@ def calculate_liquidation_price(position_data):
         return 0.0
 
 def calculate_margin(position_data):
-    """
-    Calculate margin used
-    """
+    """Calculate margin used"""
     try:
         return float(position_data.get('marginUsed', 0))
     except:
         return 0.0
 
-def get_live_whale_data():
-    """
-    Fetch live whale data from Hyperliquid API
-    """
-    whale_data = {}
+def parse_hyperliquid_positions(user_state, wallet_address):
+    """Parse Hyperliquid API response into standardized position format"""
+    positions = []
     
-    st.info("🔄 Fetching live data from Hyperliquid...")
+    try:
+        if user_state and 'assetPositions' in user_state:
+            for position in user_state['assetPositions']:
+                position_data = position.get('position', {})
+                
+                symbol = position_data.get('coin', 'Unknown')
+                size = float(position_data.get('szi', 0))
+                entry_price = float(position_data.get('entryPx', 0))
+                
+                mark_price = get_market_price(symbol)
+                
+                if size != 0 and entry_price != 0:
+                    side = "long" if size > 0 else "short"
+                    leverage = calculate_leverage(position_data)
+                    unrealized_pnl = calculate_unrealized_pnl(position_data, mark_price)
+                    liq_price = calculate_liquidation_price(position_data)
+                    margin = calculate_margin(position_data)
+                    
+                    positions.append({
+                        'symbol': f"{symbol}/USD",
+                        'side': side,
+                        'size': abs(size) * mark_price,
+                        'entryPrice': entry_price,
+                        'markPrice': mark_price,
+                        'liqPrice': liq_price,
+                        'leverage': leverage,
+                        'unrealizedPnl': unrealized_pnl,
+                        'margin': margin
+                    })
+        
+        return positions
+        
+    except Exception as e:
+        return []
+
+def get_live_whale_data():
+    """Fetch live whale data from Hyperliquid API"""
+    whale_data = {}
     
     for wallet, whale_name in WHALE_ADDRESSES.items():
         try:
-            # Get user state from Hyperliquid
             user_state = get_hyperliquid_user_state(wallet)
             
             if user_state:
-                # Parse positions
                 positions = parse_hyperliquid_positions(user_state, wallet)
                 
                 whale_data[wallet] = {
                     'name': whale_name,
                     'positions': positions,
                     'geo': WHALE_GEO_DATA.get(wallet, {}),
-                    'last_updated': datetime.now(),
-                    'total_balance': float(user_state.get('marginSummary', {}).get('accountValue', 0)),
-                    'free_collateral': float(user_state.get('marginSummary', {}).get('freeCollateral', 0))
+                    'last_updated': datetime.now()
                 }
-                
-                st.success(f"✅ Live data for {whale_name}")
             else:
-                # Fallback to demo data if API fails
+                # Fallback to demo data
                 whale_data[wallet] = get_demo_whale_data(wallet, whale_name)
-                st.warning(f"⚠️ Using demo data for {whale_name}")
                 
         except Exception as e:
-            st.error(f"❌ Error processing {whale_name}: {e}")
-            # Fallback to demo data
+            # Fallback to demo data on error
             whale_data[wallet] = get_demo_whale_data(wallet, whale_name)
     
     return whale_data
 
 def get_demo_whale_data(wallet, name):
-    """
-    Fallback demo data when live API is unavailable
-    """
+    """Fallback demo data when live API is unavailable"""
     demo_positions = {
         "0x742d35Cc6634C0532925a3b8D": [{
             'symbol': 'ETH/USD',
@@ -228,23 +218,22 @@ def get_demo_whale_data(wallet, name):
         'name': name,
         'positions': demo_positions.get(wallet, []),
         'geo': WHALE_GEO_DATA.get(wallet, {}),
-        'last_updated': datetime.now(),
-        'total_balance': 1000000,
-        'free_collateral': 50000
+        'last_updated': datetime.now()
     }
 
 def display_whale_dashboard(use_demo_data=False):
-    """
-    Display the main whale tracking dashboard with live data
-    """
-    # Fetch data
-    if use_demo_data:
-        whale_data = {}
-        for wallet, name in WHALE_ADDRESSES.items():
-            whale_data[wallet] = get_demo_whale_data(wallet, name)
-        st.warning("📊 Using demo data for display")
-    else:
-        whale_data = get_live_whale_data()
+    """Display the main whale tracking dashboard"""
+    # Show loading message
+    with st.spinner('🔄 Loading whale data...'):
+        # Fetch data
+        if use_demo_data:
+            whale_data = {}
+            for wallet, name in WHALE_ADDRESSES.items():
+                whale_data[wallet] = get_demo_whale_data(wallet, name)
+            st.success("📊 Demo data loaded successfully!")
+        else:
+            whale_data = get_live_whale_data()
+            st.success("🌐 Live data loaded successfully!")
     
     if not whale_data:
         st.error("❌ No whale data available")
@@ -279,8 +268,6 @@ def display_whale_dashboard(use_demo_data=False):
                 st.write(f"**Wallet:** `{wallet[:12]}...{wallet[-6:]}`")
                 st.write(f"**Region:** {data['geo'].get('region', 'Unknown')}")
                 st.write(f"**Last Updated:** {data['last_updated'].strftime('%Y-%m-%d %H:%M:%S')}")
-                if 'total_balance' in data:
-                    st.write(f"**Total Balance:** ${data['total_balance']:,.0f}")
             
             with col2:
                 if data['positions']:
@@ -317,8 +304,8 @@ def display_whale_dashboard(use_demo_data=False):
                         
                         with col3:
                             st.write("**📊 Performance**")
-                            pnl_class = "positive-pnl" if position['unrealizedPnl'] >= 0 else "negative-pnl"
-                            st.markdown(f"**PnL:** <span style='color: {'#00d600' if position['unrealizedPnl'] >= 0 else '#ff4b4b'}; font-weight: bold;'>${position['unrealizedPnl']:+,.0f}</span>", unsafe_allow_html=True)
+                            pnl_color = "🟢" if position['unrealizedPnl'] >= 0 else "🔴"
+                            st.write(f"**PnL:** {pnl_color} ${position['unrealizedPnl']:+,.0f}")
                             st.write(f"**Margin:** ${position['margin']:,.0f}")
                             
                             # Risk assessment

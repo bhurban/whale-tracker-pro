@@ -1,70 +1,56 @@
-# ===== WHALE CONFIGURATION =====
+"""
+Configuration file for Whale Tracker Pro
+"""
+
+# Whale addresses to monitor (Hyperliquid wallet addresses)
 WHALE_ADDRESSES = {
-    "0x5b5d51203a0f9079f8aeb098a6523a13f298c060": "🦁 Singapore Whale",
-    "0xc2a30212a8ddac9e123944d6e29faddce994e5f2": "🦅 US Whale", 
-    "0x4044570e13b5184f7eb2709de25a4eb766a4794c": "👑 UK Whale",
-    "0x6a56d5665bae79056207c8605c7fa5421737711b": "🕌 Emirates Whale",
-    "0xd83cff88a32ffbf3951f2b13e4a0a37103b3193d": "🐉 Hong Kong Whale"
+    "0x742d35Cc6634C0532925a3b8D": "Crypto Whale Alpha",
+    "0x8a4bC2349335b7D6a5d2f7A3b9": "Institutional Trader", 
+    "0x3cBdF0D8f7C4a5b0eE2d7a3c1": "DeFi Giant",
+    "0x1a2b3c4d5e6f7a8b9c0d1e2f3": "Market Maker Pro",
+    "0x9e8d7c6b5a4f3e2d1c0b9a8f7": "Hedge Fund One"
 }
 
+# Geographic data for whales
 WHALE_GEO_DATA = {
-    "0x5b5d51203a0f9079f8aeb098a6523a13f298c060": {
-        "name": "🦁 Singapore Whale",
-        "country": "Singapore",
-        "region": "Asia",
-        "risk_level": "Medium"
-    },
-    "0xc2a30212a8ddac9e123944d6e29faddce994e5f2": {
-        "name": "🦅 US Whale",
-        "country": "United States", 
+    "0x742d35Cc6634C0532925a3b8D": {
         "region": "North America",
-        "risk_level": "High"
+        "country": "US",
+        "timezone": "EST"
     },
-    "0x4044570e13b5184f7eb2709de25a4eb766a4794c": {
-        "name": "👑 UK Whale",
-        "country": "United Kingdom",
-        "region": "Europe",
-        "risk_level": "High"
+    "0x8a4bC2349335b7D6a5d2f7A3b9": {
+        "region": "Europe", 
+        "country": "UK",
+        "timezone": "GMT"
+    },
+    "0x3cBdF0D8f7C4a5b0eE2d7a3c1": {
+        "region": "Asia",
+        "country": "SG", 
+        "timezone": "SGT"
+    },
+    "0x1a2b3c4d5e6f7a8b9c0d1e2f3": {
+        "region": "North America",
+        "country": "CA",
+        "timezone": "PST"
+    },
+    "0x9e8d7c6b5a4f3e2d1c0b9a8f7": {
+        "region": "Europe", 
+        "country": "CH",
+        "timezone": "CET"
     }
 }
 
-# ===== EMAIL CONFIGURATION =====
-EMAIL_CONFIG = {
-    "SENDER_EMAIL": "safecaretrustisb@gmail.com",
-    "SENDER_PASSWORD": "bwcwhktylznehjwt",
-    "RECEIVER_EMAILS": [
-        "safecaretrustisb@gmail.com",
-        "yoursecondemail@gmail.com",
-        "yourthirdemail@yahoo.com"
-    ],
-    "ALERT_THRESHOLDS": {
-        "new_position": 100000,  # Alert for positions > $100k
-        "portfolio_change": 50000,  # Alert for portfolio changes > $50k
-        "large_pnl": 100000,  # Alert for P&L moves > $100k
-        "large_trade": 500000  # Alert for large trades > $500k
-    },
-    "ALERT_COOLDOWNS": {
-        "NEW_WHALE": 3600,  # 1 hour cooldown for new whale alerts
-        "NEW_POSITION": 1800,  # 30 minutes for new position alerts
-        "PORTFOLIO_CHANGE": 900,  # 15 minutes for portfolio changes
-        "LARGE_PNL": 300,  # 5 minutes for P&L alerts
-        "SAME_COIN_PNL": 600,  # 10 minutes for same coin P&L alerts
-        "LEVERAGE_SURGE": 1800,  # 30 minutes for leverage alerts
-        "CROSS_EXCHANGE": 3600  # 1 hour for cross-exchange alerts
-    }
+# Alert thresholds
+ALERT_THRESHOLDS = {
+    "high_leverage": 8.0,
+    "large_position": 500000,  # USD
+    "pnl_alert": 10000,  # USD
+    "liquidation_risk": 0.15  # 15% from liquidation
 }
 
-# ===== CROSS-EXCHANGE CONFIG =====
-EXCHANGE_HOT_WALLETS = {
-    'binance': '0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE',
-    'coinbase': '0xA9D1e08C7793af67E9d92fe308d5697FB81d3E43',
-    'kraken': '0x2910543Af39abA0Cd09dBb2D50200b3E800A63D2',
-    'kucoin': '0x2b5634c42055806a59e9107ed44d43c426e58258'
-}
-
-BLOCKCHAIN_SCANNERS = {
-    'ethereum': 'https://api.etherscan.io/api',
-    'bsc': 'https://api.bscscan.com/api',
-    'polygon': 'https://api.polygonscan.com/api',
-    'avalanche': 'https://api.snowtrace.io/api'
+# API Configuration
+HYPERLIQUID_CONFIG = {
+    "mainnet_url": "https://api.hyperliquid.xyz",
+    "testnet_url": "https://api.hyperliquid-testnet.xyz",
+    "websocket_url": "wss://api.hyperliquid.xyz/ws"
 }
