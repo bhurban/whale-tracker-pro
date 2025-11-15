@@ -5,4 +5,4 @@ websocket-client>=1.6.0
 python-dotenv>=1.0.0
 hyperliquid>=0.7.0
 EOF
-"hyperliquid>=0.7.0" 
+hyperliquid>=0.7.0
