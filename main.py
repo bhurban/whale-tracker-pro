@@ -37,13 +37,6 @@ def main():
     
     # Auto-refresh toggle
     auto_refresh = st.sidebar.checkbox("🔄 Auto Refresh (30s)", value=False)
-    if auto_refresh:
-        refresh_countdown = st.sidebar.empty()
-        for i in range(30, 0, -1):
-            refresh_countdown.text(f"🕐 Refreshing in {i}s...")
-            time.sleep(1)
-        st.runtime.legacy_caching.clear_cache()
-        st.experimental_rerun()
     
     # Data source selection
     data_source = st.sidebar.radio("📊 Data Source:", ["Live Data", "Demo Data"])
@@ -57,6 +50,13 @@ def main():
     # Display dashboard
     use_demo_data = (data_source == "Demo Data")
     display_whale_dashboard(use_demo_data=use_demo_data)
+    
+    # Auto-refresh logic (simplified)
+    if auto_refresh:
+        refresh_placeholder = st.sidebar.empty()
+        refresh_placeholder.info("🔄 Auto-refresh enabled - page will refresh in 30s")
+        time.sleep(30)
+        st.experimental_rerun()
     
     # Footer
     st.sidebar.markdown("---")
