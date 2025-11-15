@@ -561,40 +561,30 @@ def display_whale_dashboard(use_demo_data=False):
                     
                     st.metric("", value="", delta=pnl_delta)
             
-            # Display positions with change indicators
+            # 🎯 FIXED: Display positions with COLUMN HEADERS
             if data['positions']:
                 positions_df = pd.DataFrame(data['positions'])
                 
-                display_data = []
-                for _, pos in positions_df.iterrows():
-                    css_class = ""
-                    pos_alerts = [a for a in whale_alerts if a.get('symbol') == pos['symbol']]
-                    
-                    if any(a['type'] == 'NEW_TRADE' for a in pos_alerts):
-                        css_class = "new-position"
-                    elif any(a['type'] in ['SIZE_CHANGE', 'LEVERAGE_CHANGE'] for a in pos_alerts):
-                        if pos['pnl'] > 0:
-                            css_class = "position-change-up"
-                        else:
-                            css_class = "position-change-down"
-                    
-                    display_data.append({
-                        'Coin': f"<div class='{css_class}'>{pos['symbol']}</div>" if css_class else pos['symbol'],
-                        'Type': pos['type'],
-                        'Leverage': f"⚡{pos['leverage']:.1f}x" if pos['leverage'] >= 5.0 else f"{pos['leverage']:.1f}x",
-                        'Size': f"${pos['size']:,.0f}",
-                        'PNL': f"${pos['pnl']:+,.0f}",
-                        'PNL %': f"{pos['pnl_percent']:+.2f}%"
-                    })
+                # Create display DataFrame with proper headers
+                display_df = positions_df[['symbol', 'type', 'leverage', 'size', 'pnl', 'pnl_percent']].copy()
                 
-                # Display as HTML for styling
-                for pos_data in display_data:
-                    cols = st.columns([2,1,1,2,2,1])
-                    cols[0].markdown(pos_data['Coin'], unsafe_allow_html=True)
-                    cols[1].write(pos_data['Type'])
-                    cols[2].write(pos_data['Leverage'])
-                    cols[3].write(pos_data['Size'])
-                    cols[4].write(pos_data['PNL'])
-                    cols[5].write(pos_data['PNL %'])
+                # Format the columns
+                display_df['leverage'] = display_df['leverage'].apply(
+                    lambda x: f"⚡{x:.1f}x" if x >= 5.0 else f"{x:.1f}x"
+                )
+                display_df['size'] = display_df['size'].apply(lambda x: f"${x:,.0f}")
+                display_df['pnl'] = display_df['pnl'].apply(lambda x: f"${x:+,.0f}")
+                display_df['pnl_percent'] = display_df['pnl_percent'].apply(lambda x: f"{x:+.2f}%")
+                
+                # Rename columns for display
+                display_df.columns = ['Coin', 'Type', 'Leverage', 'Size', 'PNL', 'PNL %']
+                
+                # Display the table with headers
+                st.dataframe(
+                    display_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=(len(display_df) + 1) * 35 + 3
+                )
                 
                 st.markdown("---")
