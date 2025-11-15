@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd  # Add this import
 from whale_monitor import display_whale_dashboard, display_alerts_history
 
 # Page configuration
