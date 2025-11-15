@@ -21,6 +21,21 @@ WHALE_GEO_DATA = {
     "0xd83cff88a32ffbf3951f2b13e4a0a37103b3193d": {"region": "Hong Kong", "style": "Quant Trader"}
 }
 
+ALERT_CONFIG = {
+    'leverage_change': 2.0,
+    'position_change': 0.3,
+    'new_position': True,
+    'closed_position': True,
+    'large_trade': 100000,
+    'high_leverage': 5.0,
+}
+
+# Initialize session state for alerts
+if 'previous_whale_data' not in st.session_state:
+    st.session_state.previous_whale_data = {}
+if 'alerts_history' not in st.session_state:
+    st.session_state.alerts_history = []
+
 def get_hyperliquid_user_state(wallet_address):
     """Get REAL user state from Hyperliquid API"""
     try:
@@ -35,7 +50,6 @@ def get_hyperliquid_user_state(wallet_address):
             return response.json()
         return None
     except Exception as e:
-        st.error(f"API Error for {wallet_address}: {str(e)}")
         return None
 
 def get_real_market_prices():
@@ -61,7 +75,6 @@ def get_real_market_prices():
     except:
         pass
     
-    # Fallback prices
     return {
         'ETH': 2550.75,
         'BTC': 42050.00,
@@ -144,10 +157,8 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
                     liq_price = calculate_liquidation_price(position_data)
                     margin = calculate_margin(position_data)
                     
-                    # Calculate position value
                     position_value = abs(size) * mark_price
                     
-                    # Calculate PnL percentage
                     if side == "long":
                         pnl_percent = ((mark_price - entry_price) / entry_price) * 100
                     else:
@@ -158,7 +169,7 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
                         'type': side.upper(),
                         'leverage': leverage,
                         'entry_price': entry_price,
-                        'dca_price': entry_price,  # Assuming single entry
+                        'dca_price': entry_price,
                         'sl_price': entry_price * 0.85 if side == "long" else entry_price * 1.15,
                         'tp_price': entry_price * 1.20 if side == "long" else entry_price * 0.80,
                         'size': position_value,
@@ -173,9 +184,7 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
         return positions
         
     except Exception as e:
-        st.error(f"Error parsing positions for {wallet_address}: {str(e)}")
         return []
-
 
 def get_real_whale_data():
     """Fetch REAL whale data from Hyperliquid API"""
@@ -227,18 +236,13 @@ def get_real_whale_data():
     
     return whale_data
 
-
-
-
 def get_realistic_fallback_data():
     """Fallback to realistic data if no real positions"""
-    # Create realistic demo data
     whale_data = {}
     
     for wallet, whale_name in REAL_WHALE_ADDRESSES.items():
         positions = []
         
-        # Different position patterns for each whale
         if "Singapore" in whale_name:
             positions = [
                 {'symbol': 'BTC', 'type': 'SHORT', 'leverage': 5.2, 'entry_price': 42500, 'dca_price': 42500, 'sl_price': 44000, 'tp_price': 41000, 'size': 250000, 'pnl': 12500, 'pnl_percent': 5.0, 'mark_price': 42050, 'liq_price': 44500, 'margin': 48076, 'raw_size': -5.94},
@@ -265,67 +269,283 @@ def get_realistic_fallback_data():
     
     return whale_data
 
+def detect_whale_alerts(current_data, previous_data):
+    """Detect changes in whale positions and generate alerts"""
+    alerts = []
+    
+    if not previous_data:
+        return alerts
+    
+    current_whales = set(current_data.keys())
+    previous_whales = set(previous_data.keys())
+    
+    new_whales = current_whales - previous_whales
+    for whale in new_whales:
+        alerts.append({
+            'type': 'NEW_WHALE',
+            'whale': current_data[whale]['name'],
+            'message': f"🆕 New whale detected: {current_data[whale]['name']}",
+            'priority': 'high',
+            'timestamp': datetime.now()
+        })
+    
+    for whale_addr, current_whale in current_data.items():
+        previous_whale = previous_data.get(whale_addr)
+        
+        if not previous_whale:
+            continue
+            
+        current_positions = len(current_whale['positions'])
+        previous_positions = len(previous_whale['positions'])
+        
+        if current_positions > previous_positions:
+            alerts.append({
+                'type': 'NEW_POSITION',
+                'whale': current_whale['name'],
+                'message': f"📈 {current_whale['name']} opened {current_positions - previous_positions} new position(s)",
+                'priority': 'medium',
+                'timestamp': datetime.now()
+            })
+        elif current_positions < previous_positions:
+            alerts.append({
+                'type': 'CLOSED_POSITION', 
+                'whale': current_whale['name'],
+                'message': f"📉 {current_whale['name']} closed {previous_positions - current_positions} position(s)",
+                'priority': 'medium',
+                'timestamp': datetime.now()
+            })
+        
+        current_positions_dict = {pos['symbol']: pos for pos in current_whale['positions']}
+        previous_positions_dict = {pos['symbol']: pos for pos in previous_whale['positions']}
+        
+        for symbol, current_pos in current_positions_dict.items():
+            previous_pos = previous_positions_dict.get(symbol)
+            
+            if not previous_pos:
+                alerts.append({
+                    'type': 'NEW_TRADE',
+                    'whale': current_whale['name'],
+                    'symbol': symbol,
+                    'message': f"🎯 {current_whale['name']} opened {current_pos['type']} on {symbol} (${current_pos['size']:,.0f})",
+                    'priority': 'high',
+                    'timestamp': datetime.now()
+                })
+                continue
+                
+            leverage_change = abs(current_pos['leverage'] - previous_pos['leverage'])
+            if leverage_change >= ALERT_CONFIG['leverage_change']:
+                alerts.append({
+                    'type': 'LEVERAGE_CHANGE',
+                    'whale': current_whale['name'],
+                    'symbol': symbol,
+                    'message': f"⚡ {current_whale['name']} changed {symbol} leverage from {previous_pos['leverage']:.1f}x to {current_pos['leverage']:.1f}x",
+                    'priority': 'medium',
+                    'timestamp': datetime.now()
+                })
+            
+            size_change_pct = abs(current_pos['size'] - previous_pos['size']) / previous_pos['size']
+            if size_change_pct >= ALERT_CONFIG['position_change']:
+                alerts.append({
+                    'type': 'SIZE_CHANGE',
+                    'whale': current_whale['name'], 
+                    'symbol': symbol,
+                    'message': f"📊 {current_whale['name']} changed {symbol} size by {size_change_pct:.1%}",
+                    'priority': 'medium',
+                    'timestamp': datetime.now()
+                })
+            
+            if current_pos['leverage'] >= ALERT_CONFIG['high_leverage']:
+                alerts.append({
+                    'type': 'HIGH_LEVERAGE',
+                    'whale': current_whale['name'],
+                    'symbol': symbol,
+                    'message': f"🚨 {current_whale['name']} using {current_pos['leverage']:.1f}x leverage on {symbol}",
+                    'priority': 'high', 
+                    'timestamp': datetime.now()
+                })
+    
+    for whale_addr, previous_whale in previous_data.items():
+        if whale_addr not in current_data:
+            alerts.append({
+                'type': 'WHALE_GONE',
+                'whale': previous_whale['name'],
+                'message': f"👻 Whale disappeared: {previous_whale['name']}",
+                'priority': 'low',
+                'timestamp': datetime.now()
+            })
+    
+    return alerts
+
+def display_alerts_panel(alerts):
+    """Display alerts in a dedicated panel"""
+    if not alerts:
+        return
+    
+    st.markdown("---")
+    st.subheader("🚨 **Real-Time Alerts**")
+    
+    high_alerts = [a for a in alerts if a['priority'] == 'high']
+    medium_alerts = [a for a in alerts if a['priority'] == 'medium'] 
+    low_alerts = [a for a in alerts if a['priority'] == 'low']
+    
+    for alert in high_alerts:
+        blinking_html = f"""
+        <div style="background: linear-gradient(45deg, #ff4444, #ff6666); 
+                    padding: 10px; 
+                    border-radius: 5px; 
+                    margin: 5px 0;
+                    border-left: 4px solid #ff0000;
+                    animation: blink 2s infinite;">
+            <strong>🚨 {alert['message']}</strong>
+            <br><small>{alert['timestamp'].strftime('%H:%M:%S')}</small>
+        </div>
+        """
+        st.markdown(blinking_html, unsafe_allow_html=True)
+    
+    for alert in medium_alerts:
+        st.warning(f"⚠️ {alert['message']} - {alert['timestamp'].strftime('%H:%M:%S')}")
+    
+    for alert in low_alerts:
+        st.info(f"💡 {alert['message']} - {alert['timestamp'].strftime('%H:%M:%S')}")
+
+def inject_css():
+    st.markdown("""
+    <style>
+    @keyframes blink {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    .blinking-alert {
+        animation: blink 2s infinite;
+        background: #ff4444;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 5px 0;
+    }
+    
+    .position-change-up {
+        background: linear-gradient(45deg, #00ff00, #99ff99) !important;
+        border-left: 4px solid #00cc00 !important;
+        padding: 5px;
+        border-radius: 3px;
+    }
+    
+    .position-change-down {
+        background: linear-gradient(45deg, #ff4444, #ff9999) !important; 
+        border-left: 4px solid #cc0000 !important;
+        padding: 5px;
+        border-radius: 3px;
+    }
+    
+    .new-position {
+        background: linear-gradient(45deg, #4444ff, #9999ff) !important;
+        border-left: 4px solid #0000cc !important;
+        padding: 5px;
+        border-radius: 3px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 def display_whale_dashboard(use_demo_data=False):
-    """Display dashboard with REAL Hyperliquid data"""
+    """Display dashboard with alerts and visual indicators"""
+    
+    inject_css()
     
     if use_demo_data:
         st.warning("📊 Demo mode activated - showing realistic patterns")
         whale_data = get_realistic_fallback_data()
     else:
-        # Get REAL data
         whale_data = get_real_whale_data()
     
     if not whale_data:
         st.error("❌ No whale data available")
         return
     
-    # Calculate summary metrics from REAL data
+    # 🚨 DETECT ALERTS
+    current_alerts = []
+    if st.session_state.previous_whale_data:
+        current_alerts = detect_whale_alerts(whale_data, st.session_state.previous_whale_data)
+    
+    # Store current data for next comparison
+    st.session_state.previous_whale_data = whale_data
+    
+    # 🚨 DISPLAY ALERTS PANEL
+    if current_alerts:
+        display_alerts_panel(current_alerts)
+    
+    # Calculate summary metrics
     total_whales = len(whale_data)
     total_positions = sum(len(data['positions']) for data in whale_data.values())
     total_value = sum(pos['size'] for data in whale_data.values() for pos in data['positions'])
     total_pnl = sum(pos['pnl'] for data in whale_data.values() for pos in data['positions'])
     
-    # Enhanced summary metrics
     avg_leverage = sum(pos['leverage'] for data in whale_data.values() for pos in data['positions']) / total_positions if total_positions > 0 else 0
     winning_positions = sum(1 for data in whale_data.values() for pos in data['positions'] if pos['pnl'] > 0)
     win_rate = (winning_positions / total_positions * 100) if total_positions > 0 else 0
     
-    # Display REAL summary
-    st.success(f"**🌐 LIVE HYPERLIQUID DATA:** {total_whales} active whales with {total_positions} positions")
+    # 🎯 Display summary with alert indicators
+    alert_count = len([a for a in current_alerts if a['priority'] == 'high'])
     
-    # Display enhanced summary metrics
+    if alert_count > 0:
+        st.error(f"🚨 **LIVE ALERTS:** {alert_count} high-priority alerts | {total_whales} whales, {total_positions} positions")
+    else:
+        st.success(f"🌐 **LIVE DATA:** {total_whales} whales with {total_positions} positions")
+    
+    # Enhanced metrics with visual indicators
     col1, col2, col3, col4, col5, col6 = st.columns(6)
+    
     with col1:
-        st.metric("Active Whales", total_whales)
+        new_whales = len([a for a in current_alerts if a['type'] == 'NEW_WHALE'])
+        if new_whales > 0:
+            st.markdown(f'<div class="blinking-alert"><strong>🐋 {total_whales}</strong><br>Whales</div>', unsafe_allow_html=True)
+        else:
+            st.metric("Active Whales", total_whales)
+    
     with col2:
         st.metric("Total Positions", total_positions)
+    
     with col3:
         st.metric("Total Exposure", f"${total_value:,.0f}")
+    
     with col4:
         st.metric("Total PnL", f"${total_pnl:+,.0f}")
+    
     with col5:
-        st.metric("Avg Leverage", f"{avg_leverage:.1f}x")
+        high_leverage_positions = sum(1 for data in whale_data.values() for pos in data['positions'] if pos['leverage'] >= 5.0)
+        if high_leverage_positions > 0:
+            st.markdown(f'<div style="background: #ff4444; padding: 10px; border-radius: 5px; color: white;"><strong>⚡ {avg_leverage:.1f}x</strong><br>Avg Leverage</div>', unsafe_allow_html=True)
+        else:
+            st.metric("Avg Leverage", f"{avg_leverage:.1f}x")
+    
     with col6:
         st.metric("Win Rate", f"{win_rate:.1f}%")
     
     st.markdown("---")
     
-    # Display REAL whale data with FULL wallet addresses
+    # Display whales with visual change indicators
     for wallet, data in whale_data.items():
         with st.container():
             col1, col2 = st.columns([3, 1])
             
             with col1:
-                st.subheader(f"{data['name']}")
+                whale_alerts = [a for a in current_alerts if a['whale'] == data['name']]
+                alert_icon = "🚨 " if any(a['priority'] == 'high' for a in whale_alerts) else "⚠️ " if whale_alerts else ""
                 
-                # 🎯 FULL WALLET ADDRESS DISPLAY
+                st.subheader(f"{alert_icon}{data['name']}")
+                
+                # Full wallet display
                 st.markdown(f"**Wallet Address:**")
                 st.code(wallet, language="text")
                 
                 st.write(f"**Region:** {data['geo'].get('region', 'Global')}")
                 st.write(f"**Trading Style:** {data['geo'].get('style', 'Active Trader')}")
                 st.write(f"**Last Updated:** {data['last_updated'].strftime('%Y-%m-%d %H:%M:%S')}")
-                st.write(f"**Active Positions:** {len(data['positions'])} trades")
+                
+                if whale_alerts:
+                    st.write(f"**Recent Changes:** {len(whale_alerts)} alert(s)")
+                
                 st.write(f"**Data Source:** {data['data_source']}")
             
             with col2:
@@ -333,44 +553,48 @@ def display_whale_dashboard(use_demo_data=False):
                     total_whale_value = sum(pos['size'] for pos in data['positions'])
                     total_whale_pnl = sum(pos['pnl'] for pos in data['positions'])
                     pnl_delta = f"${total_whale_pnl:+,.0f} PnL"
-                    st.metric(
-                        label="Total Exposure",
-                        value=f"${total_whale_value:,.0f}",
-                        delta=pnl_delta
-                    )
+                    
+                    if total_whale_pnl > 0:
+                        st.success(f"**${total_whale_value:,.0f}**")
+                    else:
+                        st.error(f"**${total_whale_value:,.0f}**")
+                    
+                    st.metric("", value="", delta=pnl_delta)
             
-            # Display positions as a professional table
+            # Display positions with change indicators
             if data['positions']:
-                # Create DataFrame for better table display
                 positions_df = pd.DataFrame(data['positions'])
                 
-                # Format the DataFrame for display
-                display_df = positions_df[[
-                    'symbol', 'type', 'leverage', 'entry_price', 
-                    'dca_price', 'sl_price', 'tp_price', 'size', 'pnl', 'pnl_percent'
-                ]].copy()
+                display_data = []
+                for _, pos in positions_df.iterrows():
+                    css_class = ""
+                    pos_alerts = [a for a in whale_alerts if a.get('symbol') == pos['symbol']]
+                    
+                    if any(a['type'] == 'NEW_TRADE' for a in pos_alerts):
+                        css_class = "new-position"
+                    elif any(a['type'] in ['SIZE_CHANGE', 'LEVERAGE_CHANGE'] for a in pos_alerts):
+                        if pos['pnl'] > 0:
+                            css_class = "position-change-up"
+                        else:
+                            css_class = "position-change-down"
+                    
+                    display_data.append({
+                        'Coin': f"<div class='{css_class}'>{pos['symbol']}</div>" if css_class else pos['symbol'],
+                        'Type': pos['type'],
+                        'Leverage': f"⚡{pos['leverage']:.1f}x" if pos['leverage'] >= 5.0 else f"{pos['leverage']:.1f}x",
+                        'Size': f"${pos['size']:,.0f}",
+                        'PNL': f"${pos['pnl']:+,.0f}",
+                        'PNL %': f"{pos['pnl_percent']:+.2f}%"
+                    })
                 
-                # Format numeric columns
-                display_df['leverage'] = display_df['leverage'].apply(lambda x: f"{x:.1f}x")
-                display_df['entry_price'] = display_df['entry_price'].apply(lambda x: f"${x:,.2f}")
-                display_df['dca_price'] = display_df['dca_price'].apply(lambda x: f"${x:,.2f}")
-                display_df['sl_price'] = display_df['sl_price'].apply(lambda x: f"${x:,.2f}")
-                display_df['tp_price'] = display_df['tp_price'].apply(lambda x: f"${x:,.2f}")
-                display_df['size'] = display_df['size'].apply(lambda x: f"${x:,.0f}")
-                display_df['pnl'] = display_df['pnl'].apply(lambda x: f"${x:+,.0f}")
-                display_df['pnl_percent'] = display_df['pnl_percent'].apply(lambda x: f"{x:+.2f}%")
+                # Display as HTML for styling
+                for pos_data in display_data:
+                    cols = st.columns([2,1,1,2,2,1])
+                    cols[0].markdown(pos_data['Coin'], unsafe_allow_html=True)
+                    cols[1].write(pos_data['Type'])
+                    cols[2].write(pos_data['Leverage'])
+                    cols[3].write(pos_data['Size'])
+                    cols[4].write(pos_data['PNL'])
+                    cols[5].write(pos_data['PNL %'])
                 
-                # Rename columns for better display
-                display_df.columns = [
-                    'Coin', 'Type', 'Leverage', 'Entry Price', 
-                    'DCA', 'SL', 'TP', 'Size', 'PNL', 'PNL %'
-                ]
-                
-                # Display the table
-                st.dataframe(
-                    display_df,
-                    use_container_width=True,
-                    hide_index=True
-                )
-            
-            st.markdown("---")
+                st.markdown("---")
