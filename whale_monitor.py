@@ -28,68 +28,53 @@ def calculate_pnl_percent(pnl, value):
 
 
 def get_whale_data():
-    """Fetch live whale data from Hyperliquid API using CCXT methods"""
+    """Fetch real whale data using CCXT methods"""
     from config import WHALE_ADDRESSES, WHALE_GEO_DATA
     
     try:
-        # Initialize Hyperliquid exchange
         exchange = HyperliquidSync()
         whale_data = {}
         
+        # Load markets first (required by CCXT)
+        markets = exchange.load_markets()
+        
         for wallet, whale_name in WHALE_ADDRESSES.items():
             try:
-                # Try to fetch positions using CCXT standard methods
-                # Note: For Hyperliquid, we might need to use different methods
-                # since it's a DEX and doesn't have traditional user state endpoints
-                
-                # Method 1: Try fetch_positions (standard CCXT method)
+                # Try to fetch positions (this might require API keys for private data)
                 positions = exchange.fetch_positions()
                 
-                # Method 2: If positions is empty, try other approaches
-                if not positions:
-                    # Try fetching balance and open orders to infer positions
-                    balance = exchange.fetch_balance()
-                    open_orders = exchange.fetch_open_orders()
-                    
-                    # Create mock position data for demonstration
-                    positions = [{
-                        'symbol': 'ETH/USDC',
-                        'side': 'long',
-                        'size': 1000,
-                        'entryPrice': 2500,
-                        'markPrice': 2550,
-                        'liqPrice': 2000,
-                        'leverage': 5,
-                        'unrealizedPnl': 50,
-                        'margin': 200
-                    }]
+                # For public data, you might need to use different endpoints
+                # or use the official Hyperliquid API directly
                 
-                if positions:
-                    whale_data[wallet] = {
-                        'name': whale_name,
-                        'positions': positions,
-                        'geo': WHALE_GEO_DATA.get(wallet, {}),
-                        'last_updated': datetime.now()
-                    }
-                    print(f"✓ Found data for {whale_name}")
-                else:
-                    print(f"⚠ No positions found for {whale_name}")
-                    
+                whale_data[wallet] = {
+                    'name': whale_name,
+                    'positions': positions or [],
+                    'geo': WHALE_GEO_DATA.get(wallet, {}),
+                    'last_updated': datetime.now()
+                }
+                
             except Exception as e:
-                print(f"❌ Error fetching data for {whale_name}: {e}")
+                print(f"Error for {whale_name}: {e}")
                 continue
                 
         return whale_data
         
     except Exception as e:
-        print(f"❌ Error initializing exchange: {e}")
+        print(f"Exchange error: {e}")
         return {}
+
 
 
 
 def display_whale_dashboard(whale_data=None):
     if whale_data is None:
         whale_data = get_whale_data()
+
+# In your display_whale_dashboard function, add:
+    if not whale_data:
+    st.warning("No whale data available. Using demo data.")
+    # Show demo data or instructions
+
 
     
     """Display the main whale tracking dashboard"""
