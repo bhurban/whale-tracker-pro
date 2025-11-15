@@ -4,7 +4,7 @@ import plotly.express as px  # ← ADD THIS IMPORT
 from datetime import datetime
 import time
 from hyperliquid import HyperliquidSync  # For synchronous operations
-from hyperliquid.utils import constants
+
 
 def safe_float(value, default=0.0):
     """Safely convert value to float"""
@@ -30,7 +30,7 @@ def get_whale_data():
     """Fetch live whale data from Hyperliquid API"""
     from config import WHALE_ADDRESSES, WHALE_GEO_DATA
     
-    info = HyperliquidSync(constants.MAINNET_API_URL, skip_ws=True)
+    info = HyperliquidSync("https://api.hyperliquid.xyz")  # Mainnet URL
     whale_data = {}
     
     for wallet, whale_name in WHALE_ADDRESSES.items():

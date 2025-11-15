@@ -7,9 +7,8 @@ st.title("🐋 Whale Tracker Pro - Debug Mode")
 try:
     st.success("✓ Basic imports working")
     
-    # Test HyperliquidSync
+    # Test HyperliquidSync without utils
     from hyperliquid import HyperliquidSync
-    from hyperliquid.utils import constants
     
     st.success("✓ HyperliquidSync imported")
     
@@ -18,25 +17,29 @@ try:
     st.write("Available methods in HyperliquidSync:")
     st.code(sync_methods)
     
-    # Test instantiation
+    # Test different instantiation methods
     st.write("Testing HyperliquidSync instantiation...")
+    
     try:
-        info = HyperliquidSync(constants.MAINNET_API_URL, skip_ws=True)
-        st.success("✓ HyperliquidSync instantiated successfully")
-        
-        # Test user_state method
-        st.write("Testing user_state method...")
-        # Use a test address instead of your whale addresses for now
-        test_address = "0x0000000000000000000000000000000000000000"
-        try:
-            user_state = info.user_state(test_address)
-            st.success(f"✓ user_state method works: {type(user_state)}")
-            st.write(f"Response: {user_state}")
-        except Exception as e:
-            st.warning(f"❌ user_state failed: {e}")
-            
+        # Try with mainnet URL
+        info = HyperliquidSync("https://api.hyperliquid.xyz")
+        st.success("✓ HyperliquidSync with mainnet URL")
     except Exception as e:
-        st.error(f"❌ HyperliquidSync instantiation failed: {e}")
+        st.warning(f"❌ With mainnet URL: {e}")
+    
+    try:
+        # Try with no parameters
+        info = HyperliquidSync()
+        st.success("✓ HyperliquidSync with no parameters")
+    except Exception as e:
+        st.warning(f"❌ With no parameters: {e}")
+        
+    try:
+        # Try with skip_ws
+        info = HyperliquidSync(skip_ws=True)
+        st.success("✓ HyperliquidSync with skip_ws=True")
+    except Exception as e:
+        st.warning(f"❌ With skip_ws: {e}")
     
     # Now try to import your whale monitor
     st.write("Attempting to import whale_monitor...")
