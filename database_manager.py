@@ -1,13 +1,14 @@
 import sqlite3
 import pandas as pd
 from datetime import datetime
+import json
 
-class WhaleDatabase:
-    def __init__(self, db_path='whale_analytics.db'):
+class DatabaseManager:
+    def __init__(self, db_path="whale_analytics.db"):
         self.db_path = db_path
-        self.setup_database()
+        self.init_database()
     
-    def setup_database(self):
+    def init_database(self):
         """Initialize database tables"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -16,105 +17,86 @@ class WhaleDatabase:
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS whale_positions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                wallet_address TEXT,
                 whale_name TEXT,
-                coin TEXT,
-                position_type TEXT,
-                value REAL,
-                leverage REAL,
-                pnl REAL,
-                pnl_percent REAL,
+                symbol TEXT,
+                side TEXT,
+                size REAL,
                 entry_price REAL,
-                size REAL
+                mark_price REAL,
+                liq_price REAL,
+                leverage REAL,
+                unrealized_pnl REAL,
+                margin REAL,
+                timestamp DATETIME,
+                raw_data TEXT
             )
         ''')
         
-        # Alert history table
+        # Whale alerts table
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS alert_history (
+            CREATE TABLE IF NOT EXISTS whale_alerts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                wallet_address TEXT,
                 alert_type TEXT,
-                whale_name TEXT,
-                coin TEXT,
-                message TEXT,
-                urgency TEXT
+                alert_message TEXT,
+                severity TEXT,
+                timestamp DATETIME,
+                resolved BOOLEAN DEFAULT FALSE
             )
         ''')
         
-        # Performance metrics table
+        # Price history table
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS performance_metrics (
+            CREATE TABLE IF NOT EXISTS price_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                total_portfolio_value REAL,
-                active_whales INTEGER,
-                total_positions INTEGER,
-                net_pnl REAL
+                symbol TEXT,
+                price REAL,
+                timestamp DATETIME
             )
         ''')
         
         conn.commit()
         conn.close()
     
-    def log_whale_position(self, whale_data):
-        """Log current whale positions to database"""
+    def save_whale_positions(self, whale_data):
+        """Save whale positions to database"""
         conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         
-        for whale_name, data in whale_data.items():
-            for position in data.get('positions', []):
-                conn.execute('''
+        for wallet, data in whale_data.items():
+            for position in data['positions']:
+                cursor.execute('''
                     INSERT INTO whale_positions 
-                    (whale_name, coin, position_type, value, leverage, pnl, pnl_percent, entry_price, size)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (wallet_address, whale_name, symbol, side, size, entry_price, mark_price, liq_price, leverage, unrealized_pnl, margin, timestamp, raw_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    whale_name,
-                    position['Coin'],
-                    position['Type'],
-                    position['Value'],
-                    position['Leverage'],
-                    position['P&L'],
-                    position['P&L %'],
-                    position['Entry Price'],
-                    position['Size']
+                    wallet,
+                    data['name'],
+                    position['symbol'],
+                    position['side'],
+                    position['size'],
+                    position['entryPrice'],
+                    position['markPrice'],
+                    position['liqPrice'],
+                    position['leverage'],
+                    position['unrealizedPnl'],
+                    position['margin'],
+                    datetime.now(),
+                    json.dumps(position.get('raw_data', {}))
                 ))
         
         conn.commit()
         conn.close()
     
-    def log_alert(self, alert_data):
-        """Log alert to database"""
+    def get_whale_history(self, wallet_address, hours=24):
+        """Get historical positions for a whale"""
         conn = sqlite3.connect(self.db_path)
-        conn.execute('''
-            INSERT INTO alert_history (alert_type, whale_name, coin, message, urgency)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (
-            alert_data.get('type'),
-            alert_data.get('whale'),
-            alert_data.get('coin', 'N/A'),
-            alert_data.get('message'),
-            alert_data.get('urgency', 'MEDIUM')
-        ))
-        conn.commit()
-        conn.close()
-    
-    def get_historical_data(self, days=7):
-        """Get historical data for analytics"""
-        conn = sqlite3.connect(self.db_path)
-        
-        # Get whale position history
-        positions_df = pd.read_sql('''
+        query = '''
             SELECT * FROM whale_positions 
-            WHERE timestamp >= datetime('now', '-{} days')
+            WHERE wallet_address = ? AND timestamp >= datetime('now', ?)
             ORDER BY timestamp DESC
-        '''.format(days), conn)
-        
-        # Get alert history
-        alerts_df = pd.read_sql('''
-            SELECT * FROM alert_history 
-            WHERE timestamp >= datetime('now', '-{} days')
-            ORDER BY timestamp DESC
-        '''.format(days), conn)
-        
+        '''
+        df = pd.read_sql_query(query, conn, params=[wallet_address, f'-{hours} hours'])
         conn.close()
-        return positions_df, alerts_df
+        return df
