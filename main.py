@@ -1,120 +1,106 @@
 import streamlit as st
-import time
-#from whale_monitor import display_whale_dashboard, display_alerts_history, display_analytics, display_whale_profiles
 from whale_monitor import display_whale_dashboard, display_alerts_history
-def main():
-    st.set_page_config(
-        page_title="Whale Tracker Pro",
-        page_icon="🐋",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    # Custom CSS for better styling
-    st.markdown("""
-    <style>
+
+# Page configuration
+st.set_page_config(
+    page_title="Crypto Whale Monitor",
+    page_icon="🐋",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS for better styling
+st.markdown("""
+<style>
     .main-header {
-        font-size: 3rem;
-        color: #1E88E5;
+        font-size: 2.5rem;
+        color: #1E90FF;
         text-align: center;
         margin-bottom: 1rem;
     }
-    .nav-tabs {
-        background: #f0f2f6;
-        padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 2rem;
-    }
     .whale-card {
-        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
+        background-color: #0E1117;
         border-radius: 10px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-left: 4px solid #1E90FF;
+    }
+    .alert-high {
+        background-color: #ff4444;
         color: white;
-        margin: 10px 0;
+        padding: 0.5rem;
+        border-radius: 5px;
+        margin: 0.2rem 0;
     }
-    
-    /* Style the tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+    .alert-medium {
+        background-color: #ffaa00;
+        color: black;
+        padding: 0.5rem;
+        border-radius: 5px;
+        margin: 0.2rem 0;
     }
-    
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: #f0f2f6;
-        border-radius: 8px 8px 0px 0px;
-        gap: 8px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        font-weight: bold;
+    .alert-low {
+        background-color: #44ff44;
+        color: black;
+        padding: 0.5rem;
+        border-radius: 5px;
+        margin: 0.2rem 0;
     }
+</style>
+""", unsafe_allow_html=True)
+
+# Title and description
+st.markdown('<div class="main-header">🐋 Crypto Whale Monitor</div>', unsafe_allow_html=True)
+st.markdown("### Track major cryptocurrency whales and their trading activity in real-time")
+
+# Initialize session state for demo mode
+if 'use_demo_data' not in st.session_state:
+    st.session_state.use_demo_data = False
+
+# Sidebar
+with st.sidebar:
+    st.title("Settings")
     
-    .stTabs [aria-selected="true"] {
-        background-color: #1E88E5;
-        color: white;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Demo mode toggle
+    use_demo = st.toggle("Demo Mode", value=st.session_state.use_demo_data)
+    if use_demo != st.session_state.use_demo_data:
+        st.session_state.use_demo_data = use_demo
+        st.rerun()
     
-    # Header
-    st.markdown('<h1 class="main-header">🐋 Whale Tracker Pro</h1>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("### 🔍 Data Sources")
+    st.markdown("""
+    - **Binance** - Spot & Futures
+    - **Bybit** - Derivatives
+    - **DEX** - Uniswap, PancakeSwap
+    - **Whale Alert** - Large transactions
+    """)
     
-    # Sidebar
-    st.sidebar.title("⚙️ Configuration")
-    
-    # Auto-refresh toggle
-    auto_refresh = st.sidebar.checkbox("🔄 Auto Refresh (30s)", value=False)
-    
-    # Data source selection
-    data_source = st.sidebar.radio("📊 Data Source:", ["Live Data", "Demo Data"])
-    
-    # Alert settings
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🚨 Alert Settings")
-    alert_leverage = st.sidebar.slider("High Leverage Alert", 3, 20, 5)
-    alert_size = st.sidebar.slider("Large Trade Alert ($)", 50000, 500000, 100000, step=50000)
-    
-    # Navigation Tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Live Dashboard", 
-        "🚨 Alerts Center", 
-        "📈 Analytics", 
-        "🐋 Whale Profiles"
-    ])
-    
-    use_demo_data = (data_source == "Demo Data")
-    
-    with tab1:
-        st.subheader("🌐 Real-Time Whale Positions")
-        display_whale_dashboard(use_demo_data=use_demo_data)
-    
-    with tab2:
-        st.subheader("🚨 Trading Alerts & Signals")
-        display_alerts_history(use_demo_data=use_demo_data)
-    
-    with tab3:
-        st.subheader("📈 Market Analytics")
-        display_analytics(use_demo_data=use_demo_data)
-    
-    with tab4:
-        st.subheader("🐋 Whale Profiles & History")
-        display_whale_profiles(use_demo_data=use_demo_data)
-    
-    # Auto-refresh logic (simplified)
-    if auto_refresh:
-        refresh_placeholder = st.sidebar.empty()
-        refresh_placeholder.info("🔄 Auto-refresh enabled - page will refresh in 30s")
-        time.sleep(30)
-        st.experimental_rerun()
-    
-    # Footer
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📊 Data Sources")
-    st.sidebar.info("""
-    - **Hyperliquid API**: Real whale positions
-    - **CoinGecko**: Live market prices
-    - **Real Addresses**: Verified whale wallets
+    st.markdown("---")
+    st.markdown("### 📊 Metrics Tracked")
+    st.markdown("""
+    - Position Size
+    - Leverage
+    - PnL
+    - Entry/Exit Prices
+    - Trading Patterns
+    - Risk Levels
     """)
 
-if __name__ == "__main__":
-    main()
+# Main app with tabs
+tab1, tab2 = st.tabs(["🐋 Whale Dashboard", "🚨 Alerts Center"])
+
+with tab1:
+    display_whale_dashboard(st.session_state.use_demo_data)
+
+with tab2:
+    display_alerts_history(st.session_state.use_demo_data)
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center'>
+    <p>🔒 <em>Data is updated in real-time from multiple blockchain and exchange sources</em></p>
+    <p>⚠️ <em>This tool is for educational purposes only. Always do your own research.</em></p>
+</div>
+""", unsafe_allow_html=True)
