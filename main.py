@@ -1,7 +1,7 @@
 import streamlit as st
 import time
-from whale_monitor import display_whale_dashboard, display_alerts_history, display_analytics, display_whale_profiles
-
+#from whale_monitor import display_whale_dashboard, display_alerts_history, display_analytics, display_whale_profiles
+from whale_monitor import display_whale_dashboard, display_alerts_history
 def main():
     st.set_page_config(
         page_title="Whale Tracker Pro",
