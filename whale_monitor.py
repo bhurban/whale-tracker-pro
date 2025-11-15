@@ -41,17 +41,52 @@ def get_hyperliquid_user_state(wallet_address):
     except Exception as e:
         return None
 
-def get_real_market_prices():
-    """Get REAL market prices"""
+def get_hyperliquid_market_prices():
+    """Get market prices directly from Hyperliquid"""
     try:
+        url = "https://api.hyperliquid.xyz/info"
+        payload = {"type": "meta"}
+        
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Extract prices from Hyperliquid market data
+            prices = {}
+            for coin_info in data:
+                symbol = coin_info['name']
+                # Hyperliquid provides mark price directly
+                mark_price = coin_info.get('markPx', 0)
+                if mark_price:
+                    prices[symbol] = float(mark_price)
+            
+            return prices
+            
+    except Exception as e:
+        st.warning(f"⚠️ Hyperliquid price API error: {e}")
+    
+    return {}
+
+def get_real_market_prices():
+    """Get REAL market prices with fallback for all coins"""
+    try:
+        # Extended coin list including meme coins and alts
+        coin_ids = [
+            'ethereum', 'bitcoin', 'solana', 'arbitrum', 'binancecoin', 
+            'cardano', 'polkadot', 'chainlink', 'dogecoin', 'injective-protocol',
+            'sui', 'hype', 'fartcoin', 'pump', 'xpl', 'aster'
+        ]
+        
         response = requests.get(
-            "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin,solana,arbitrum,binancecoin,cardano,polkadot,chainlink&vs_currencies=usd",
+            f"https://api.coingecko.com/api/v3/simple/price?ids={','.join(coin_ids)}&vs_currencies=usd",
             timeout=10
         )
         
         if response.status_code == 200:
             data = response.json()
-            return {
+            
+            # Map coin symbols to CoinGecko IDs
+            price_mapping = {
                 'ETH': data.get('ethereum', {}).get('usd', 2550.75),
                 'BTC': data.get('bitcoin', {}).get('usd', 42050.00),
                 'SOL': data.get('solana', {}).get('usd', 102.25),
@@ -60,10 +95,22 @@ def get_real_market_prices():
                 'ADA': data.get('cardano', {}).get('usd', 0.48),
                 'DOT': data.get('polkadot', {}).get('usd', 6.85),
                 'LINK': data.get('chainlink', {}).get('usd', 14.20),
+                'DOGE': data.get('dogecoin', {}).get('usd', 0.08),  # Added DOGE
+                'INJ': data.get('injective-protocol', {}).get('usd', 40.00),  # Added INJ
+                'SUI': data.get('sui', {}).get('usd', 1.50),  # Added SUI
+                'HYPE': data.get('hype', {}).get('usd', 0.50),  # Fallback for HYPE
+                'FARTCOIN': data.get('fartcoin', {}).get('usd', 0.001),  # Fallback for FARTCOIN
+                'PUMP': data.get('pump', {}).get('usd', 0.0001),  # Fallback for PUMP
+                'XPL': data.get('xpl', {}).get('usd', 0.02),  # Fallback for XPL
+                'ASTER': data.get('aster', {}).get('usd', 1.10),  # Fallback for ASTER
             }
-    except:
-        pass
+            
+            return price_mapping
+            
+    except Exception as e:
+        st.warning(f"⚠️ Price API error: {e}")
     
+    # Enhanced fallback prices
     return {
         'ETH': 2550.75,
         'BTC': 42050.00,
@@ -72,7 +119,15 @@ def get_real_market_prices():
         'BNB': 325.50,
         'ADA': 0.48,
         'DOT': 6.85,
-        'LINK': 14.20
+        'LINK': 14.20,
+        'DOGE': 0.08,      # Added
+        'INJ': 40.00,      # Added  
+        'SUI': 1.50,       # Added
+        'HYPE': 0.50,      # Added
+        'FARTCOIN': 0.001, # Added
+        'PUMP': 0.0001,    # Added
+        'XPL': 0.02,       # Added
+        'ASTER': 1.10      # Added
     }
 
 def calculate_leverage(position_data):
@@ -154,9 +209,15 @@ def calculate_margin(position_data):
         return 0.0
 
 def parse_real_hyperliquid_positions(user_state, wallet_address):
-    """Parse REAL Hyperliquid API response - CORRECTED PnL"""
+    """Parse REAL Hyperliquid API response with enhanced price data"""
     positions = []
-    prices = get_real_market_prices()
+    
+    # Get prices from multiple sources
+    coingecko_prices = get_real_market_prices()
+    hyperliquid_prices = get_hyperliquid_market_prices()
+    
+    # Merge prices (Hyperliquid first, CoinGecko as fallback)
+    prices = {**coingecko_prices, **hyperliquid_prices}
     
     try:
         if user_state and 'assetPositions' in user_state:
@@ -167,8 +228,12 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
                 size = float(position_data.get('szi', 0))
                 entry_price = float(position_data.get('entryPx', 0))
                 
-                # Get accurate market price
-                mark_price = prices.get(symbol, entry_price)  # Fallback to entry price if not found
+                # Get mark price - try multiple sources
+                mark_price = (
+                    hyperliquid_prices.get(symbol) or 
+                    coingecko_prices.get(symbol) or 
+                    entry_price  # Final fallback to entry price
+                )
                 
                 if size != 0 and entry_price != 0:
                     side = "long" if size > 0 else "short"
