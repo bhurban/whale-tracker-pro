@@ -72,9 +72,12 @@ def display_whale_dashboard(whale_data=None):
 
 # In your display_whale_dashboard function, add:
     if not whale_data:
-    st.warning("No whale data available. Using demo data.")
+        st.warning("No whale data available. Using demo data.")
+
     # Show demo data or instructions
 
+    # Rest of your function with proper indentation
+    st.title("🐋 Live Whale Positions")
 
     
     """Display the main whale tracking dashboard"""
