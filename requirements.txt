@@ -1,15 +1,5 @@
-# Create a clean requirements.txt with ONLY your project dependencies
-cat > requirements.txt << 'EOF'
 plotly>=5.15.0
 pandas>=2.0.0
 requests>=2.31.0
 websocket-client>=1.6.0
 python-dotenv>=1.0.0
-EOF
-
-# 1. Create the minimal requirements.txt
-echo "plotly>=5.15.0" > requirements.txt
-echo "pandas>=2.0.0" >> requirements.txt
-echo "requests>=2.31.0" >> requirements.txt
-echo "websocket-client>=1.6.0" >> requirements.txt
-echo "python-dotenv>=1.0.0" >> requirements.txt
