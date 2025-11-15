@@ -76,29 +76,59 @@ def get_real_market_prices():
     }
 
 def calculate_leverage(position_data):
-    """Calculate leverage from position data"""
+    """Calculate leverage from position data - CORRECTED"""
     try:
         size = abs(float(position_data.get('szi', 0)))
         entry_price = float(position_data.get('entryPx', 1))
         margin_used = float(position_data.get('marginUsed', 0))
         
         if margin_used > 0:
-            return (size * entry_price) / margin_used
+            leverage = (size * entry_price) / margin_used
+            return max(leverage, 1.0)  # Ensure minimum 1x leverage
         return 1.0
     except:
         return 1.0
 
 def calculate_unrealized_pnl(position_data, mark_price):
-    """Calculate unrealized P&L"""
+    """Calculate unrealized P&L - CORRECTED FORMULA"""
     try:
         size = float(position_data.get('szi', 0))
         entry_price = float(position_data.get('entryPx', 0))
         
-        if size > 0:  # Long
-            return size * (mark_price - entry_price)
-        else:  # Short
-            return abs(size) * (entry_price - mark_price)
-    except:
+        if size == 0 or entry_price == 0:
+            return 0.0
+            
+        # CORRECT PnL calculation
+        if size > 0:  # Long position
+            pnl = size * (mark_price - entry_price)
+        else:  # Short position
+            pnl = abs(size) * (entry_price - mark_price)
+            
+        return pnl
+        
+    except Exception as e:
+        st.error(f"PnL calculation error: {e}")
+        return 0.0
+
+def calculate_unrealized_pnl_percent(position_data, mark_price):
+    """Calculate unrealized P&L percentage - CORRECTED"""
+    try:
+        size = float(position_data.get('szi', 0))
+        entry_price = float(position_data.get('entryPx', 0))
+        
+        if size == 0 or entry_price == 0:
+            return 0.0
+            
+        # CORRECT PnL percentage calculation
+        if size > 0:  # Long position
+            pnl_percent = ((mark_price - entry_price) / entry_price) * 100
+        else:  # Short position
+            pnl_percent = ((entry_price - mark_price) / entry_price) * 100
+            
+        return pnl_percent
+        
+    except Exception as e:
+        st.error(f"PnL % calculation error: {e}")
         return 0.0
 
 def calculate_liquidation_price(position_data):
@@ -124,7 +154,7 @@ def calculate_margin(position_data):
         return 0.0
 
 def parse_real_hyperliquid_positions(user_state, wallet_address):
-    """Parse REAL Hyperliquid API response"""
+    """Parse REAL Hyperliquid API response - CORRECTED PnL"""
     positions = []
     prices = get_real_market_prices()
     
@@ -137,21 +167,22 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
                 size = float(position_data.get('szi', 0))
                 entry_price = float(position_data.get('entryPx', 0))
                 
-                mark_price = prices.get(symbol, 100.0)
+                # Get accurate market price
+                mark_price = prices.get(symbol, entry_price)  # Fallback to entry price if not found
                 
                 if size != 0 and entry_price != 0:
                     side = "long" if size > 0 else "short"
                     leverage = calculate_leverage(position_data)
+                    
+                    # CORRECT PnL calculations
                     unrealized_pnl = calculate_unrealized_pnl(position_data, mark_price)
+                    unrealized_pnl_percent = calculate_unrealized_pnl_percent(position_data, mark_price)
+                    
                     liq_price = calculate_liquidation_price(position_data)
                     margin = calculate_margin(position_data)
                     
+                    # CORRECT position value calculation
                     position_value = abs(size) * mark_price
-                    
-                    if side == "long":
-                        pnl_percent = ((mark_price - entry_price) / entry_price) * 100
-                    else:
-                        pnl_percent = ((entry_price - mark_price) / entry_price) * 100
                     
                     positions.append({
                         'symbol': symbol,
@@ -163,7 +194,7 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
                         'tp_price': entry_price * 1.20 if side == "long" else entry_price * 0.80,
                         'size': position_value,
                         'pnl': unrealized_pnl,
-                        'pnl_percent': pnl_percent,
+                        'pnl_percent': unrealized_pnl_percent,
                         'mark_price': mark_price,
                         'liq_price': liq_price,
                         'margin': margin,
@@ -173,6 +204,7 @@ def parse_real_hyperliquid_positions(user_state, wallet_address):
         return positions
         
     except Exception as e:
+        st.error(f"Error parsing positions: {e}")
         return []
 
 def get_real_whale_data():
@@ -258,8 +290,104 @@ def get_realistic_fallback_data():
     
     return whale_data
 
+def add_position_indicators(display_df):
+    """Add visual indicators for positions"""
+    def highlight_positions(row):
+        styles = []
+        
+        for col in display_df.columns:
+            # Check for profits
+            if col == 'PNL' and row['PNL'].startswith('$+'):
+                pnl_value = float(row['PNL'].replace('$+', '').replace(',', ''))
+                if pnl_value > 1000000:  # $1M+ profit
+                    styles.append('background-color: #00ff00; color: black; font-weight: bold;')
+                elif pnl_value > 100000:  # $100K+ profit
+                    styles.append('background-color: #90ee90;')
+                else:
+                    styles.append('background-color: #e8f5e8;')
+            
+            # Check for losses  
+            elif col == 'PNL' and row['PNL'].startswith('$-'):
+                pnl_value = float(row['PNL'].replace('$-', '').replace(',', ''))
+                if pnl_value > 1000000:  # $1M+ loss
+                    styles.append('background-color: #ff4444; color: white; font-weight: bold;')
+                elif pnl_value > 100000:  # $100K+ loss
+                    styles.append('background-color: #ff9999;')
+                else:
+                    styles.append('background-color: #ffe6e6;')
+            
+            # Check for PNL percentages
+            elif col == 'PNL %':
+                pnl_percent = float(row['PNL %'].replace('%', '').replace('+', '').replace('-', ''))
+                is_negative = '-' in row['PNL %']
+                
+                if is_negative and pnl_percent > 100:  # -100%+ loss
+                    styles.append('background-color: #ff4444; color: white; font-weight: bold;')
+                elif is_negative and pnl_percent > 50:  # -50%+ loss
+                    styles.append('background-color: #ff9999;')
+                elif not is_negative and pnl_percent > 100:  # +100%+ profit
+                    styles.append('background-color: #ff00ff; color: black; font-weight: bold;')
+                elif not is_negative and pnl_percent > 50:  # +50%+ profit
+                    styles.append('background-color: #ffccff;')
+                else:
+                    styles.append('')
+            
+            # Check for leverage
+            elif col == 'Leverage' and '⚡' in row['Leverage']:
+                leverage = float(row['Leverage'].replace('⚡', '').replace('x', ''))
+                if leverage > 10:
+                    styles.append('background-color: #ffaa00; color: black; font-weight: bold;')
+                elif leverage > 5:
+                    styles.append('background-color: #ffdd99;')
+                else:
+                    styles.append('background-color: #fff4e0;')
+            
+            # Highlight position types
+            elif col == 'Type' and 'SHORT' in row['Type']:
+                styles.append('background-color: #ff6666; color: white; font-weight: bold;')
+            elif col == 'Type' and 'LONG' in row['Type']:
+                styles.append('background-color: #66ff66; color: black; font-weight: bold;')
+            else:
+                styles.append('')
+        
+        return styles
+    
+    return display_df.style.apply(highlight_positions, axis=1)
+
+def detect_extreme_moves(positions_df):
+    """Detect and alert on extreme moves"""
+    alerts = []
+    
+    for _, pos in positions_df.iterrows():
+        pnl_value = pos['pnl']
+        pnl_percent = pos['pnl_percent']
+        leverage = pos['leverage']
+        symbol = pos['symbol']
+        size = pos['size']
+        
+        # Profit alerts
+        if pnl_value > 1000000:  # $1M+ profit
+            alerts.append(f"💰 BIG PROFIT: {symbol} +${pnl_value/1000000:.1f}M")
+        
+        # Loss alerts
+        elif pnl_value < -1000000:  # $1M+ loss
+            alerts.append(f"📉 BIG LOSS: {symbol} -${abs(pnl_value)/1000000:.1f}M")
+        
+        # Percentage alerts
+        if pnl_percent > 100:  # 100%+ profit
+            alerts.append(f"🚀 HUGE GAINS: {symbol} +{pnl_percent:.1f}%")
+        
+        elif pnl_percent < -100:  # -100%+ loss
+            alerts.append(f"😱 HUGE LOSS: {symbol} {pnl_percent:.1f}%")
+        
+        # Leverage alerts
+        if leverage > 10:
+            alerts.append(f"⚡ HIGH LEVERAGE: {symbol} {leverage:.1f}x")
+    
+    return alerts
+
 def display_whale_dashboard(use_demo_data=False):
-    """Display dashboard with whale data"""
+    """Display dashboard with whale data - CORRECTED CALCULATIONS"""
     
     if use_demo_data:
         st.warning("📊 Demo mode activated - showing realistic patterns")
@@ -281,6 +409,10 @@ def display_whale_dashboard(use_demo_data=False):
     winning_positions = sum(1 for data in whale_data.values() for pos in data['positions'] if pos['pnl'] > 0)
     win_rate = (winning_positions / total_positions * 100) if total_positions > 0 else 0
     
+    # Calculate additional metrics
+    total_profits = sum(pos['pnl'] for data in whale_data.values() for pos in data['positions'] if pos['pnl'] > 0)
+    total_losses = sum(pos['pnl'] for data in whale_data.values() for pos in data['positions'] if pos['pnl'] < 0)
+    
     # Display summary
     st.success(f"🌐 **LIVE DATA:** {total_whales} whales with {total_positions} positions")
     
@@ -299,6 +431,9 @@ def display_whale_dashboard(use_demo_data=False):
         st.metric("Avg Leverage", f"{avg_leverage:.1f}x")
     with col6:
         st.metric("Win Rate", f"{win_rate:.1f}%")
+    
+    # Display portfolio summary
+    st.info(f"📊 **Portfolio Summary:** Profits: ${total_profits:,.0f} | Losses: ${abs(total_losses):,.0f} | Net: ${total_pnl:+,.0f}")
     
     st.markdown("---")
     
@@ -331,9 +466,16 @@ def display_whale_dashboard(use_demo_data=False):
                         delta=pnl_delta
                     )
             
-            # Display positions with ALL columns
+            # Display positions with ALL columns and visual indicators
             if data['positions']:
                 positions_df = pd.DataFrame(data['positions'])
+                
+                # Detect extreme moves for this whale
+                whale_alerts = detect_extreme_moves(positions_df)
+                if whale_alerts:
+                    st.warning("🚨 **Alerts:**")
+                    for alert in whale_alerts:
+                        st.write(f"• {alert}")
                 
                 # Create display DataFrame with ALL columns
                 display_df = positions_df[[
@@ -359,9 +501,10 @@ def display_whale_dashboard(use_demo_data=False):
                     'DCA', 'SL', 'TP', 'Size', 'PNL', 'PNL %'
                 ]
                 
-                # Display the table with ALL headers
+                # Display the table with visual indicators
+                styled_df = add_position_indicators(display_df)
                 st.dataframe(
-                    display_df,
+                    styled_df,
                     use_container_width=True,
                     hide_index=True,
                     height=(len(display_df) + 1) * 35 + 3
