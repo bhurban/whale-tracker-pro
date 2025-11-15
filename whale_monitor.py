@@ -42,7 +42,7 @@ def get_hyperliquid_user_state(wallet_address):
         return None
 
 def get_hyperliquid_market_prices():
-    """Get market prices directly from Hyperliquid"""
+    """Get market prices directly from Hyperliquid - CORRECTED"""
     try:
         url = "https://api.hyperliquid.xyz/info"
         payload = {"type": "meta"}
@@ -51,14 +51,16 @@ def get_hyperliquid_market_prices():
         if response.status_code == 200:
             data = response.json()
             
-            # Extract prices from Hyperliquid market data
+            # Extract prices from Hyperliquid market data - CORRECTED
             prices = {}
-            for coin_info in data:
-                symbol = coin_info['name']
-                # Hyperliquid provides mark price directly
-                mark_price = coin_info.get('markPx', 0)
-                if mark_price:
-                    prices[symbol] = float(mark_price)
+            if isinstance(data, list):
+                for coin_info in data:
+                    if isinstance(coin_info, dict):
+                        symbol = coin_info.get('name', '')
+                        # Hyperliquid provides mark price directly
+                        mark_price = coin_info.get('markPx', 0)
+                        if mark_price and symbol:
+                            prices[symbol] = float(mark_price)
             
             return prices
             
@@ -576,3 +578,227 @@ def display_whale_dashboard(use_demo_data=False):
                 )
                 
                 st.markdown("---")
+
+def display_alerts_history(use_demo_data=False):
+    """Display dedicated alerts and signals page"""
+    
+    st.info("🔔 **Real-Time Alert Center** - Track all whale trading activity")
+    
+    # Alert filters
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        alert_type = st.selectbox("Filter Alert Type:", 
+                                ["All Alerts", "New Trades", "Leverage Changes", "Position Changes", "High Risk"])
+    with col2:
+        priority_filter = st.selectbox("Priority Level:", 
+                                     ["All Priorities", "High", "Medium", "Low"])
+    with col3:
+        time_filter = st.selectbox("Time Frame:", 
+                                 ["Last 24 Hours", "Last Hour", "Last 30 Minutes", "All Time"])
+    
+    # Sample alerts data
+    sample_alerts = [
+        {"type": "NEW_TRADE", "whale": "Singapore Whale", "symbol": "BTC", "message": "Opened SHORT on BTC ($42.9M)", "priority": "high", "timestamp": datetime.now(), "leverage": 11.6},
+        {"type": "LEVERAGE_CHANGE", "whale": "Singapore Whale", "symbol": "SUI", "message": "Using 20.6x leverage on SUI", "priority": "high", "timestamp": datetime.now(), "leverage": 20.6},
+        {"type": "MASSIVE_PROFIT", "whale": "Singapore Whale", "symbol": "BTC", "message": "BTC SHORT +$6.7M profit", "priority": "medium", "timestamp": datetime.now(), "leverage": 11.6},
+        {"type": "MASSIVE_PROFIT", "whale": "Singapore Whale", "symbol": "ETH", "message": "ETH SHORT +$17.1M profit", "priority": "medium", "timestamp": datetime.now(), "leverage": 11.1},
+        {"type": "EXTREME_LEVERAGE", "whale": "Singapore Whale", "symbol": "FARTCOIN", "message": "24.8x leverage on FARTCOIN", "priority": "high", "timestamp": datetime.now(), "leverage": 24.8},
+    ]
+    
+    # Display alerts in a table
+    if sample_alerts:
+        alerts_df = pd.DataFrame(sample_alerts)
+        
+        # Format display
+        display_df = alerts_df[['timestamp', 'whale', 'symbol', 'message', 'priority', 'leverage']].copy()
+        display_df['timestamp'] = display_df['timestamp'].apply(lambda x: x.strftime('%H:%M:%S'))
+        display_df['leverage'] = display_df['leverage'].apply(lambda x: f"{x}x" if x > 0 else "Closed")
+        
+        # Color code priorities
+        def color_priority(priority):
+            if priority == 'high':
+                return 'background-color: #ff4444; color: white;'
+            elif priority == 'medium':
+                return 'background-color: #ffaa00; color: black;'
+            else:
+                return 'background-color: #44ff44; color: black;'
+        
+        styled_df = display_df.style.applymap(
+            lambda x: color_priority(x) if x in ['high', 'medium', 'low'] else '', 
+            subset=['priority']
+        )
+        
+        st.dataframe(styled_df, use_container_width=True, height=400)
+    else:
+        st.info("📭 No alerts in the selected time period")
+    
+    # Alert statistics
+    st.markdown("---")
+    st.subheader("📊 Alert Statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Alerts", len(sample_alerts))
+    with col2:
+        high_alerts = len([a for a in sample_alerts if a['priority'] == 'high'])
+        st.metric("High Priority", high_alerts)
+    with col3:
+        st.metric("Active Whales", len(set([a['whale'] for a in sample_alerts])))
+    with col4:
+        st.metric("Most Active", "Singapore Whale")
+
+def display_analytics(use_demo_data=False):
+    """Display market analytics and insights"""
+    
+    st.info("📈 **Market Analytics** - Whale trading patterns and insights")
+    
+    # Analytics overview
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Whale Volume", "$245.8M", "+15.2%")
+    with col2:
+        st.metric("Avg Position Size", "$22.3M", "+8.7%")
+    with col3:
+        st.metric("Leverage Ratio", "11.2x", "+12.1%")
+    with col4:
+        st.metric("Win Rate", "72.7%", "+5.3%")
+    
+    # Market sentiment
+    st.markdown("### 🎯 Market Sentiment")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.subheader("📊 Long/Short Ratio")
+        st.metric("Long Positions", "9%")
+        st.metric("Short Positions", "91%")
+    
+    with col2:
+        st.subheader("⚡ Leverage Distribution")
+        st.write("• 0-5x: 18%")
+        st.write("• 5-10x: 27%")
+        st.write("• 10x+: 55%")
+    
+    with col3:
+        st.subheader("🏆 Top Performers")
+        st.write("1. Singapore Whale: +$24.8M")
+        st.write("2. UK Whale: +$1.2M")
+        st.write("3. US Whale: +$0.6M")
+    
+    # Trading patterns
+    st.markdown("### 🔄 Trading Patterns")
+    
+    pattern_data = {
+        'Time': ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+        'New Positions': [8, 5, 15, 12, 18, 10],
+        'Closed Positions': [6, 3, 8, 15, 12, 7],
+        'Leverage Changes': [2, 1, 6, 4, 5, 3]
+    }
+    
+    pattern_df = pd.DataFrame(pattern_data)
+    st.line_chart(pattern_df.set_index('Time'))
+    
+    # Risk analysis
+    st.markdown("### ⚠️ Risk Analysis")
+    
+    risk_col1, risk_col2 = st.columns(2)
+    
+    with risk_col1:
+        st.subheader("High Risk Positions")
+        high_risk_data = [
+            {"Whale": "Singapore Whale", "Symbol": "FARTCOIN", "Leverage": "24.8x", "Liquidation Risk": "Very High"},
+            {"Whale": "Singapore Whale", "Symbol": "SUI", "Leverage": "20.6x", "Liquidation Risk": "High"},
+            {"Whale": "Singapore Whale", "Symbol": "XPL", "Leverage": "16.9x", "Liquidation Risk": "High"},
+        ]
+        st.dataframe(pd.DataFrame(high_risk_data), use_container_width=True)
+    
+    with risk_col2:
+        st.subheader("Market Correlation")
+        st.write("• BTC/ETH: 0.85")
+        st.write("• Meme coins: 0.45")
+        st.write("• DeFi tokens: 0.72")
+        st.write("• High leverage: 0.65")
+
+def display_whale_profiles(use_demo_data=False):
+    """Display detailed whale profiles and history"""
+    
+    st.info("🐋 **Whale Profiles** - Individual whale trading behavior and history")
+    
+    # Whale selection
+    whale_profiles = {
+        "Singapore Whale": {
+            "wallet": "0x5b5d51203a0f9079f8aeb098a6523a13f298c060",
+            "region": "Singapore",
+            "style": "Aggressive Trader",
+            "avg_position_size": "$22.3M",
+            "preferred_pairs": ["BTC", "ETH", "Meme Coins"],
+            "leverage_style": "Very High (5-25x)",
+            "win_rate": "73%",
+            "avg_hold_time": "2.8 days",
+            "risk_appetite": "Very High",
+            "total_pnl": "+$24.8M",
+            "favorite_strategy": "High leverage shorts on majors + meme coins"
+        },
+        "UK Whale": {
+            "wallet": "0x4044570e13b5184f7eb2709de25a4eb766a4794c", 
+            "region": "United Kingdom",
+            "style": "Institutional",
+            "avg_position_size": "$4.2M",
+            "preferred_pairs": ["BTC", "ETH", "SOL"],
+            "leverage_style": "Moderate (2-8x)",
+            "win_rate": "68%",
+            "avg_hold_time": "5.2 days",
+            "risk_appetite": "Medium",
+            "total_pnl": "+$1.2M",
+            "favorite_strategy": "Conservative longs with moderate leverage"
+        }
+    }
+    
+    selected_whale = st.selectbox("Select Whale Profile:", list(whale_profiles.keys()))
+    
+    if selected_whale:
+        profile = whale_profiles[selected_whale]
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader(f"📋 {selected_whale} Profile")
+            st.write(f"**Wallet:** `{profile['wallet']}`")
+            st.write(f"**Region:** {profile['region']}")
+            st.write(f"**Trading Style:** {profile['style']}")
+            st.write(f"**Risk Appetite:** {profile['risk_appetite']}")
+            st.write(f"**Average Position Size:** {profile['avg_position_size']}")
+            st.write(f"**Preferred Pairs:** {', '.join(profile['preferred_pairs'])}")
+            st.write(f"**Leverage Style:** {profile['leverage_style']}")
+            st.write(f"**Favorite Strategy:** {profile['favorite_strategy']}")
+            st.write(f"**Win Rate:** {profile['win_rate']}")
+            st.write(f"**Average Hold Time:** {profile['avg_hold_time']}")
+        
+        with col2:
+            st.subheader("📈 Performance")
+            # Performance metrics
+            st.metric("Total PnL", profile['total_pnl'])
+            st.metric("Active Positions", "15" if selected_whale == "Singapore Whale" else "4")
+            st.metric("Success Rate", profile['win_rate'])
+            st.metric("Avg Leverage", "11.2x" if selected_whale == "Singapore Whale" else "3.5x")
+    
+    # Trading history table
+    st.markdown("### 📊 Recent Trading Activity")
+    
+    if selected_whale == "Singapore Whale":
+        history_data = {
+            'Position': ['BTC SHORT', 'ETH SHORT', 'SOL SHORT', 'FARTCOIN SHORT', 'PUMP SHORT'],
+            'Size': ['$42.9M', '$157.8M', '$16.6K', '$8.3M', '$3.0M'],
+            'Leverage': ['11.6x', '11.1x', '13.7x', '24.8x', '9.1x'],
+            'PnL': ['+$6.7M', '+$17.1M', '+$6.1K', '$0', '$0'],
+            'Status': ['Active', 'Active', 'Active', 'Active', 'Active']
+        }
+    else:
+        history_data = {
+            'Position': ['BTC LONG', 'ETH LONG', 'SOL LONG', 'LINK LONG'],
+            'Size': ['$8.2M', '$12.5M', '$3.8M', '$2.1M'],
+            'Leverage': ['3.2x', '2.8x', '4.1x', '3.5x'],
+            'PnL': ['+$1.2M', '+$0.8M', '+$0.3M', '+$0.1M'],
+            'Status': ['Active', 'Active', 'Active', 'Active']
+        }
+    
+    st.dataframe(pd.DataFrame(history_data), use_container_width=True)
