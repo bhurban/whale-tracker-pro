@@ -1,11 +1,27 @@
 import streamlit as st
+import traceback
 import pandas as pd
 import plotly.express as px
 import time
 from datetime import datetime
 import sys
 import os
+from dotenv import load_dotenv
 import sqlite3
+
+try:
+    # Your existing main.py code here
+    from whale_monitor import display_whale_dashboard
+    st.set_page_config(page_title="Whale Tracker Pro", layout="wide")
+    display_whale_dashboard()
+    
+except Exception as e:
+    st.set_page_config(page_title="Whale Tracker Pro", layout="wide")
+    st.error("🚨 Application Error")
+    st.code(traceback.format_exc())
+    
+load_dotenv()
+
 
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +32,22 @@ from whale_monitor import get_whale_data, display_whale_dashboard
 from cross_exchange_tracker import CrossExchangeTracker
 from leverage_monitor import LeverageMonitor
 from email_alerts import send_email_alert, check_for_alerts, should_send_alert
+
+# In main.py, add error handling
+try:
+    from whale_monitor import get_whale_data, display_whale_dashboard
+    from database_manager import DatabaseManager
+    # ... other imports
+except ImportError as e:
+    import streamlit as st
+    st.error(f"Import error: {e}")
+
+
+# Use get() with defaults instead of direct os.environ[]
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
+API_KEY = os.getenv('HYPERLIQUID_API_KEY', '')
+
+
 
 # Database Manager Class
 class WhaleDatabase:
