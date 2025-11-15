@@ -7,53 +7,36 @@ st.title("🐋 Whale Tracker Pro - Debug Mode")
 try:
     st.success("✓ Basic imports working")
     
-    # Test what's in hyperliquid package
-    import hyperliquid
-    st.success("✓ Hyperliquid package imported")
+    # Test HyperliquidSync
+    from hyperliquid import HyperliquidSync
+    from hyperliquid.utils import constants
     
-    # List available attributes in hyperliquid
-    st.write("Available in hyperliquid package:")
-    hyperliquid_attrs = [attr for attr in dir(hyperliquid) if not attr.startswith('_')]
-    st.code(hyperliquid_attrs)
+    st.success("✓ HyperliquidSync imported")
     
-    # Try different import patterns
-    st.write("Testing import patterns:")
+    # Check available methods
+    sync_methods = [method for method in dir(HyperliquidSync) if not method.startswith('_')]
+    st.write("Available methods in HyperliquidSync:")
+    st.code(sync_methods)
     
+    # Test instantiation
+    st.write("Testing HyperliquidSync instantiation...")
     try:
-        from hyperliquid.info import Info
-        st.success("✓ Imported: from hyperliquid.info import Info")
-        st.write(f"Info class: {Info}")
-    except ImportError as e:
-        st.warning(f"❌ from hyperliquid.info import Info failed: {e}")
+        info = HyperliquidSync(constants.MAINNET_API_URL, skip_ws=True)
+        st.success("✓ HyperliquidSync instantiated successfully")
         
-    try:
-        import hyperliquid.info as info
-        st.success("✓ Imported: import hyperliquid.info")
-        st.write(f"info module: {info}")
-        st.write("Available in info:", [attr for attr in dir(info) if not attr.startswith('_')])
-    except ImportError as e:
-        st.warning(f"❌ import hyperliquid.info failed: {e}")
-        
-    try:
-        from hyperliquid import Info
-        st.success("✓ Imported: from hyperliquid import Info")
-        st.write(f"Info: {Info}")
-    except ImportError as e:
-        st.warning(f"❌ from hyperliquid import Info failed: {e}")
-    
-    # Try to see if there are any submodules
-    st.write("Checking for submodules:")
-    try:
-        import hyperliquid.exchange
-        st.success("✓ Found: hyperliquid.exchange")
-    except ImportError as e:
-        st.warning(f"❌ hyperliquid.exchange: {e}")
-        
-    try:
-        import hyperliquid.websocket
-        st.success("✓ Found: hyperliquid.websocket")
-    except ImportError as e:
-        st.warning(f"❌ hyperliquid.websocket: {e}")
+        # Test user_state method
+        st.write("Testing user_state method...")
+        # Use a test address instead of your whale addresses for now
+        test_address = "0x0000000000000000000000000000000000000000"
+        try:
+            user_state = info.user_state(test_address)
+            st.success(f"✓ user_state method works: {type(user_state)}")
+            st.write(f"Response: {user_state}")
+        except Exception as e:
+            st.warning(f"❌ user_state failed: {e}")
+            
+    except Exception as e:
+        st.error(f"❌ HyperliquidSync instantiation failed: {e}")
     
     # Now try to import your whale monitor
     st.write("Attempting to import whale_monitor...")
